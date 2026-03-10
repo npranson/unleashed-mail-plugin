@@ -1,5 +1,5 @@
 ---
-description: Brainstorm and design an UnleashedMail feature, then research modern approaches before planning
+description: Brainstorm and design a feature — research modern approaches, then pressure-test with enterprise and SMB stakeholder personas before planning
 allowed-tools: Read, Grep, Glob, Task, WebFetch, WebSearch
 disable-model-invocation: true
 ---
@@ -56,25 +56,52 @@ Launch the **`modern-standards-planner`** agent to research current best practic
 
 Wait for the planner's research summary before finalizing.
 
-## Step 5: Edge Cases & Risks
+## Step 5: Stakeholder Review
 
-- What could go wrong?
-- What happens offline?
-- Are there Gmail API or Graph API quota implications?
-- Any security considerations?
-- Provider-specific limitations (e.g., Gmail doesn't support X natively)?
+Launch both persona agents **in parallel** to pressure-test the design:
 
-## Step 6: Summary for Approval
+**Agent: `enterprise-stakeholder`**
+> Review this feature proposal from an enterprise deployment perspective.
+> Evaluate for: compliance (HIPAA, SOC 2, PIPEDA), admin control, scale
+> (50k emails, 200 labels, shared mailboxes), SSO/MDM, integration risks,
+> and security. Here is the proposed design: [summary from Steps 2-4]
 
-Present the design as a short spec incorporating the planner's modern standards findings:
+**Agent: `smb-entrepreneur`**
+> Review this feature proposal from a small business power-user perspective.
+> Evaluate for: daily workflow impact (150 emails/day, 3 accounts), speed,
+> keyboard-first UX, client communication edge cases, multi-device sync,
+> cost justification, and competitive comparison. Here is the proposed design:
+> [summary from Steps 2-4]
+
+Collect both assessments and incorporate their findings:
+- Enterprise BLOCK or SHIP WITH CONDITIONS items become hard requirements
+- SMB DEAL BREAKER items become hard requirements
+- Enterprise NEEDS WORK and SMB NICE TO HAVE items become backlog candidates
+- Missing requirements from both personas get added to the spec
+
+## Step 6: Edge Cases & Risks (Consolidated)
+
+Merge technical risks with stakeholder findings:
+
+- What could go wrong technically? (offline, API quotas, provider limitations)
+- What could go wrong for enterprise? (compliance gaps, admin blind spots, scale failures)
+- What could go wrong for SMB? (workflow disruption, speed regression, missing integrations)
+- Security considerations from both perspectives
+
+## Step 7: Summary for Approval
+
+Present the design as a short spec incorporating:
 
 - Design decisions with rationale
-- Which modern patterns will be adopted
+- Modern standards findings (from planner)
+- Enterprise impact assessment verdict and key conditions
+- SMB reality check verdict and key expectations
 - Provider parity plan
 - Estimated task breakdown (S/M/L per task)
 - Dual implementation impacts (native + WebKit compose, etc.)
+- Requirements added from stakeholder review
 
-## Step 7: Create Planning Document (Mandatory)
+## Step 8: Create Planning Document (Mandatory)
 
 Per project CLAUDE.md, create `docs/planning/FEATURE_NAME_PLAN.md` using the template
 from the `modern-standards-planner` agent. This is non-negotiable — no implementation
