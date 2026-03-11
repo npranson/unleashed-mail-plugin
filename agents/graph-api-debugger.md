@@ -3,7 +3,10 @@ name: graph-api-debugger
 description: >
   Diagnostic agent for Microsoft Graph API and MSAL authentication issues.
   Invoke when encountering OAuth failures, permission errors, throttling,
-  subscription/webhook problems, or unexpected Graph API responses.
+  subscription/webhook problems, or unexpected Graph API responses. Invoke
+  automatically when seeing MSAL errors, AADSTS error codes, 401/403/429
+  responses from Graph API, interaction_required errors, delta sync failures,
+  webhook subscription issues, or any Outlook/Microsoft 365 integration problem.
 model: claude-sonnet-4-6
 allowed-tools: Read, Bash, Grep, Glob, Write, Edit
 ---

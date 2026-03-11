@@ -5,7 +5,10 @@ description: >
   service protocols and implementations, API integration (Gmail + Graph), sync
   orchestration, error handling, and performance-critical logic. Invoke for any
   task involving the logic layer between UI and data — new ViewModels, API service
-  implementations, sync workflows, or provider abstraction work.
+  implementations, sync workflows, or provider abstraction work. Invoke automatically
+  when creating ViewModels, defining service protocols, implementing Gmail or Graph
+  API calls, building sync logic, handling errors, creating mock implementations,
+  or when a feature needs both provider implementations.
 model: claude-sonnet-4-6
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
@@ -137,8 +140,6 @@ final class DraftsViewModel {
 
     private let draftService: DraftServiceProtocol
     private let dbQueue: DatabaseQueue
-    private var observationCancellable: AnyDatabaseCancellable?
-
     init(draftService: DraftServiceProtocol, dbQueue: DatabaseQueue) {
         self.draftService = draftService
         self.dbQueue = dbQueue
@@ -146,20 +147,18 @@ final class DraftsViewModel {
 
     // MARK: - Lifecycle
 
-    func startObserving() {
+    func startObserving() async {
         let observation = ValueObservation.tracking { db in
             try MailDraft.order(Column("updatedAt").desc).fetchAll(db)
         }
-        observationCancellable = observation.start(
-            in: dbQueue,
-            onError: { [weak self] error in
-                self?.error = .databaseError(underlying: error)
-            },
-            onChange: { [weak self] drafts in
-                self?.drafts = drafts
-                self?.state = .loaded(drafts)
+        do {
+            for try await drafts in observation.values(in: dbQueue) {
+                self.drafts = drafts
+                self.state = .loaded(drafts)
             }
-        )
+        } catch {
+            self.error = .databaseError(underlying: error)
+        }
     }
 
     // MARK: - Actions
@@ -170,7 +169,7 @@ final class DraftsViewModel {
             let saved = try await draftService.saveDraft(draft)
             try await dbQueue.write { db in try saved.save(db) }
         } catch {
-            self.error = mapToProviderError(error)
+            self.error = MailProviderError(from: error)
         }
     }
 
@@ -183,7 +182,7 @@ final class DraftsViewModel {
             try await draftService.deleteDraft(id: id)
         } catch {
             // Revert — refetch from API
-            self.error = mapToProviderError(error)
+            self.error = MailProviderError(from: error)
             await refreshFromAPI()
         }
     }
@@ -196,7 +195,7 @@ final class DraftsViewModel {
                 try sent.save(db)
             }
         } catch {
-            self.error = mapToProviderError(error)
+            self.error = MailProviderError(from: error)
         }
     }
 }
@@ -207,31 +206,33 @@ final class DraftsViewModel {
 All provider-specific errors must be mapped to the shared `MailProviderError`:
 
 ```swift
-private func mapToProviderError(_ error: Error) -> MailProviderError {
-    switch error {
-    case let gmailError as GmailAPIError:
-        switch gmailError {
-        case .unauthorized: return .tokenExpired
-        case .forbidden: return .permissionDenied(scope: "unknown")
-        case .rateLimited: return .rateLimited(retryAfter: nil)
-        case .notFound(let id): return .messageNotFound(id: id)
-        case .serverError(let code): return .serverError(code: code, message: "Gmail API error")
-        case .networkError(let e): return .networkError(underlying: e)
+extension MailProviderError {
+    init(from error: Error) {
+        switch error {
+        case let gmailError as GmailAPIError:
+            switch gmailError {
+            case .unauthorized: self = .tokenExpired
+            case .forbidden: self = .permissionDenied(scope: "unknown")
+            case .rateLimited: self = .rateLimited(retryAfter: nil)
+            case .notFound(let id): self = .messageNotFound(id: id)
+            case .serverError(let code): self = .serverError(code: code, message: "Gmail API error")
+            case .networkError(let e): self = .networkError(underlying: e)
+            }
+        case let graphError as GraphAPIError:
+            switch graphError {
+            case .notSignedIn, .authenticationFailed: self = .notAuthenticated
+            case .interactionRequired: self = .interactionRequired
+            case .tokenRefreshFailed: self = .tokenExpired
+            case .forbidden(let msg): self = .permissionDenied(scope: msg)
+            case .throttled(let retry): self = .rateLimited(retryAfter: retry.map(TimeInterval.init))
+            case .notFound(let r): self = .messageNotFound(id: r)
+            case .serverError(let code): self = .serverError(code: code, message: "Graph API error")
+            case .networkError(let e): self = .networkError(underlying: e)
+            case .decodingError(let e): self = .networkError(underlying: e)
+            }
+        default:
+            self = .networkError(underlying: error)
         }
-    case let graphError as GraphAPIError:
-        switch graphError {
-        case .notSignedIn, .authenticationFailed: return .notAuthenticated
-        case .interactionRequired: return .interactionRequired
-        case .tokenRefreshFailed: return .tokenExpired
-        case .forbidden(let msg): return .permissionDenied(scope: msg)
-        case .throttled(let retry): return .rateLimited(retryAfter: retry.map(TimeInterval.init))
-        case .notFound(let r): return .messageNotFound(id: r)
-        case .serverError(let code): return .serverError(code: code, message: "Graph API error")
-        case .networkError(let e): return .networkError(underlying: e)
-        case .decodingError(let e): return .networkError(underlying: e)
-        }
-    default:
-        return .networkError(underlying: error)
     }
 }
 ```
@@ -298,6 +299,7 @@ func prefetchIfNeeded(currentIndex: Int) async {
         }
     } catch {
         // Prefetch failure is non-fatal — user can still scroll
+        Logger.debug("Prefetch failed: \(error.localizedDescription)", category: .network)
     }
 }
 ```

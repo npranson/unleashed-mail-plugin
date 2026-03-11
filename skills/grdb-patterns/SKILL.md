@@ -18,7 +18,9 @@ import GRDB
 
 struct Email: Codable, FetchableRecord, PersistableRecord, Identifiable {
     var id: Int64?
-    var gmailId: String
+    var accountEmail: String
+    var gmailId: String?
+    var graphMessageId: String?
     var threadId: String
     var subject: String
     var sender: String
@@ -39,9 +41,11 @@ struct Email: Codable, FetchableRecord, PersistableRecord, Identifiable {
 ### Rules for Models
 
 1. Always implement `Identifiable` with `id: Int64?` for autoincrement primary keys.
-2. Use `Codable` for automatic column mapping — column names match property names.
-3. Complex types (arrays, nested objects) stored as JSON columns with custom `Codable` conformance.
-4. Set `databaseTableName` explicitly — do not rely on automatic naming.
+2. Every model must include `accountEmail: String` for account scoping — queries without it risk cross-account data leaks.
+3. Use `Codable` for automatic column mapping — column names match property names.
+4. Complex types (arrays, nested objects) stored as JSON columns with custom `Codable` conformance.
+5. Set `databaseTableName` explicitly — do not rely on automatic naming.
+6. Provider-specific IDs (e.g., `gmailId`, `graphMessageId`) should be nullable since a record belongs to only one provider.
 
 ## Migrations
 
@@ -53,7 +57,9 @@ var migrator = DatabaseMigrator()
 migrator.registerMigration("v1_createEmails") { db in
     try db.create(table: "email") { t in
         t.autoIncrementedPrimaryKey("id")
-        t.column("gmailId", .text).notNull().unique()
+        t.column("accountEmail", .text).notNull()
+        t.column("gmailId", .text)
+        t.column("graphMessageId", .text)
         t.column("threadId", .text).notNull().indexed()
         t.column("subject", .text).notNull()
         t.column("sender", .text).notNull()
@@ -63,6 +69,12 @@ migrator.registerMigration("v1_createEmails") { db in
         t.column("isStarred", .boolean).notNull().defaults(to: false)
         t.column("labelIds", .text).notNull().defaults(to: "[]")
     }
+    // Composite index for account-scoped queries ordered by date
+    try db.create(
+        index: "idx_email_accountEmail_receivedAt",
+        on: "email",
+        columns: ["accountEmail", "receivedAt"]
+    )
 }
 
 migrator.registerMigration("v2_addAttachmentsTable") { db in
@@ -88,21 +100,25 @@ migrator.registerMigration("v2_addAttachmentsTable") { db in
 ### Simple fetches
 
 ```swift
-// Fetch all unread emails, newest first
+// Fetch all unread emails for an account, newest first
 let unread = try dbQueue.read { db in
     try Email
+        .filter(Column("accountEmail") == accountEmail)
         .filter(Column("isRead") == false)
         .order(Column("receivedAt").desc)
         .fetchAll(db)
 }
 ```
 
+> **Mandatory**: Every query MUST filter by `accountEmail` to prevent cross-account data leaks.
+
 ### Request types for observation
 
 ```swift
 extension Email {
-    static func inboxRequest() -> QueryInterfaceRequest<Email> {
+    static func inboxRequest(accountEmail: String) -> QueryInterfaceRequest<Email> {
         Email
+            .filter(Column("accountEmail") == accountEmail)
             .filter(literal: "labelIds LIKE '%\"INBOX\"%'")
             .order(Column("receivedAt").desc)
     }
@@ -111,14 +127,31 @@ extension Email {
 
 ## Database Observation (ValueObservation)
 
-For live UI updates, use `ValueObservation`:
+For live UI updates, use `ValueObservation`. Prefer the modern GRDB 7+ async `for try await` pattern:
+
+```swift
+// In ViewModel — modern GRDB 7+ async observation (preferred)
+func startObserving(accountEmail: String) async {
+    let observation = ValueObservation.tracking { db in
+        try Email.inboxRequest(accountEmail: accountEmail).fetchAll(db)
+    }
+    do {
+        for try await emails in observation.values(in: dbQueue) {
+            self.messages = emails
+        }
+    } catch {
+        Logger.debug("Observation failed: \(error)", category: .database)
+    }
+}
+```
+
+Callback-based alternative (legacy, use only when async context is unavailable):
 
 ```swift
 let observation = ValueObservation.tracking { db in
-    try Email.inboxRequest().fetchAll(db)
+    try Email.inboxRequest(accountEmail: accountEmail).fetchAll(db)
 }
 
-// In ViewModel
 let cancellable = observation.start(in: dbQueue, onError: { error in
     // handle
 }, onChange: { [weak self] emails in
@@ -128,9 +161,10 @@ let cancellable = observation.start(in: dbQueue, onError: { error in
 
 ### Observation Rules
 
-1. Use `ValueObservation` for read-only UI bindings — not manual polling.
-2. Store the cancellable and cancel it on deinit.
-3. For write-heavy paths, use `.removeDuplicates()` to avoid excessive UI updates.
+1. **Prefer the async `for try await` pattern** (GRDB 7+) — it integrates naturally with Swift concurrency and structured task cancellation.
+2. Use `ValueObservation` for read-only UI bindings — not manual polling.
+3. When using the callback-based API, store the cancellable and cancel it on deinit.
+4. For write-heavy paths, use `.removeDuplicates()` to avoid excessive UI updates.
 
 ## DatabaseQueue vs DatabasePool
 

@@ -5,7 +5,10 @@ description: >
   responsiveness, animation smoothness, perceived speed, accessibility, memory
   efficiency, database query performance, network request optimization, and
   progressive loading patterns. Invoke as part of the multi-reviewer workflow or
-  standalone for UX/perf audits.
+  standalone for UX/perf audits. Invoke automatically when writing code that
+  touches list rendering, database queries in ViewModels, network fetch patterns,
+  image loading, large data set handling, or when the user mentions slow UI,
+  scroll performance, or memory issues.
 model: claude-sonnet-4-6
 allowed-tools: Read, Bash, Grep, Glob
 ---

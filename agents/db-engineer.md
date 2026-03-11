@@ -5,6 +5,9 @@ description: >
   migrations, query optimization, ValueObservation setup, data modeling, and
   database-level testing. Invoke for any task involving the data layer — new tables,
   migration authoring, query performance tuning, or database observation patterns.
+  Invoke automatically when adding new data models, creating or modifying database
+  tables, writing GRDB queries, setting up ValueObservation, adding indexes, or
+  when a feature requires persistent storage.
 model: claude-sonnet-4-6
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
@@ -67,6 +70,30 @@ let observation = ValueObservation.trackingConstantRegion { db in
 }
 ```
 
+## SQLCipher Setup (Mandatory)
+
+Per CLAUDE.md, all database access uses SQLCipher (AES-256) — never unencrypted SQLite.
+
+```swift
+// ✅ Open encrypted database
+var config = Configuration()
+config.prepareDatabase { db in
+    try db.usePassphrase(try KeychainManager.shared.getDatabaseKey())
+}
+let dbQueue = try DatabaseQueue(path: dbPath, configuration: config)
+
+// Verify encryption is active
+let cipherVersion = try dbQueue.read { db in
+    try String.fetchOne(db, sql: "PRAGMA cipher_version")
+}
+assert(cipherVersion != nil, "SQLCipher is not active — database is unencrypted!")
+```
+
+**Rules:**
+- Encryption key comes from `KeychainManager` — never hardcoded, never derived at runtime
+- Store key reference as `let` — never `var` (prevents accidental reassignment)
+- Never run CLI tools (sqlite3, grdb-cli) against the database while the app is running
+
 ## Migration Categorization (Mandatory)
 
 **CRITICAL** (runs at startup — blocks UI):
@@ -98,7 +125,7 @@ Present the migration before writing it:
 ```
 New table: `draft`
   - id: Int64 (PK, autoincrement)
-  - accountId: String (FK → account.id, indexed)
+  - accountEmail: String (FK → account.email, indexed)
   - toRecipients: Text (JSON array)
   - subject: Text
   - bodyHTML: Text
@@ -107,7 +134,7 @@ New table: `draft`
   - gmailDraftId: Text? (nullable — only set after Gmail sync)
   - graphDraftId: Text? (nullable — only set after Graph sync)
 
-Index: (accountId, createdAt DESC) — covers the drafts list query
+Index: (accountEmail, createdAt DESC) — covers the drafts list query
 ```
 
 ### 3. Write the Migration
@@ -116,7 +143,7 @@ Index: (accountId, createdAt DESC) — covers the drafts list query
 migrator.registerMigration("v5_createDrafts") { db in
     try db.create(table: "draft") { t in
         t.autoIncrementedPrimaryKey("id")
-        t.column("accountId", .text).notNull()
+        t.column("accountEmail", .text).notNull()
             .references("account", onDelete: .cascade)
         t.column("toRecipients", .text).notNull().defaults(to: "[]")
         t.column("subject", .text).notNull().defaults(to: "")
@@ -129,7 +156,7 @@ migrator.registerMigration("v5_createDrafts") { db in
     try db.create(
         index: "idx_draft_account_created",
         on: "draft",
-        columns: ["accountId", "createdAt"]
+        columns: ["accountEmail", "createdAt"]
     )
 }
 ```
@@ -139,7 +166,7 @@ migrator.registerMigration("v5_createDrafts") { db in
 ```swift
 struct Draft: Codable, FetchableRecord, PersistableRecord, Identifiable {
     var id: Int64?
-    var accountId: String
+    var accountEmail: String
     var toRecipients: [String]
     var subject: String
     var bodyHTML: String
@@ -160,9 +187,9 @@ struct Draft: Codable, FetchableRecord, PersistableRecord, Identifiable {
 
 ```swift
 extension Draft {
-    static func forAccount(_ accountId: String) -> QueryInterfaceRequest<Draft> {
+    static func forAccount(_ accountEmail: String) -> QueryInterfaceRequest<Draft> {
         Draft
-            .filter(Column("accountId") == accountId)
+            .filter(Column("accountEmail") == accountEmail)
             .order(Column("createdAt").desc)
     }
 }
@@ -181,7 +208,7 @@ final class DraftDatabaseTests: XCTestCase {
 
     func test_insertAndFetch_roundTrips() throws {
         var draft = Draft(
-            accountId: "test-account",
+            accountEmail: "test@example.com",
             toRecipients: ["user@example.com"],
             subject: "Test",
             bodyHTML: "<p>Hello</p>",
@@ -194,7 +221,7 @@ final class DraftDatabaseTests: XCTestCase {
         }
 
         let fetched = try dbQueue.read { db in
-            try Draft.forAccount("test-account").fetchAll(db)
+            try Draft.forAccount("test@example.com").fetchAll(db)
         }
 
         XCTAssertEqual(fetched.count, 1)

@@ -10,9 +10,16 @@ This command orchestrates implementation across specialized coding agents.
 
 ## Phase 1: Design Check
 
-Check if a design/spec exists for this feature. If not, run `/brainstorm` first.
+Check if a planning document exists for this feature:
 
-If a design exists, summarize it and confirm the modern standards planner's recommendations
+```bash
+ls docs/planning/*PLAN*.md 2>/dev/null
+```
+
+If no plan exists, run `/brainstorm` first — implementation without a tracked plan
+violates project CLAUDE.md.
+
+If a plan exists, read it and confirm the modern standards planner's recommendations
 are still current.
 
 ## Phase 2: Implementation Plan
@@ -95,7 +102,7 @@ After all three agents complete:
 
 4. **Commit with conventional format**:
    ```bash
-   git add -A
+   git add <specific-changed-files>
    git commit -m "feat: [description]"
    ```
 

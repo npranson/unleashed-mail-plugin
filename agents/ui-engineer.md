@@ -4,7 +4,10 @@ description: >
   UI specialist agent for UnleashedMail. Handles SwiftUI views, AppKit bridging,
   WKWebView composer integration, animations, accessibility, layout, and visual
   polish. Invoke for any task involving the presentation layer — new screens,
-  view modifications, navigation changes, or UX improvements.
+  view modifications, navigation changes, or UX improvements. Invoke automatically
+  when creating or modifying SwiftUI views, building UI components, working on
+  navigation, adding toolbar items, implementing loading/error/empty states,
+  modifying the email composer UI, or any task that changes what the user sees.
 model: claude-sonnet-4-6
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
@@ -243,7 +246,7 @@ MessageRowView(message: message)
     .accessibilityElement(children: .combine)
     .accessibilityLabel("\(message.isRead ? "" : "Unread, ")From \(message.sender), \(message.subject)")
     .accessibilityHint("Double tap to open message")
-    .accessibilityAddTraits(message.isRead ? [] : .updatesFrequently)
+    .accessibilityAddTraits(message.isRead ? [] : .isButton)
 ```
 
 **Checklist:**
@@ -264,14 +267,13 @@ Use `withAnimation` for state transitions:
 // Selection change
 .animation(.easeInOut(duration: 0.2), value: viewModel.selectedMessageId)
 
-// Loading shimmer
+// Loading placeholder
 .redacted(reason: viewModel.isLoading ? .placeholder : [])
-.shimmering(active: viewModel.isLoading)
 ```
 
 **Rules:**
 - Default to `.easeInOut` at 0.2-0.3s
-- Loading = shimmer, not a hard redacted block
+- Loading = `.redacted(reason: .placeholder)` for skeleton effect
 - List changes use `.animation(.default, value:)` on the List, not individual rows
 - Never animate layout changes that cause text reflow
 

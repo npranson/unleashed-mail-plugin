@@ -4,7 +4,10 @@ description: >
   Security-focused code review agent for UnleashedMail. Audits code and CI pipelines
   for vulnerabilities including credential exposure, injection attacks, insecure
   storage, entitlement misuse, OAuth flaws, and supply chain risks. Invoke as part
-  of the multi-reviewer workflow or standalone for security-focused audits.
+  of the multi-reviewer workflow or standalone for security-focused audits. Invoke
+  automatically when writing or modifying OAuth/auth code, Keychain access, token
+  handling, WKWebView HTML loading, evaluateJavaScript calls, CI/CD workflows,
+  entitlements files, or any code that handles secrets or user credentials.
 model: claude-sonnet-4-6
 allowed-tools: Read, Bash, Grep, Glob
 ---
@@ -20,8 +23,8 @@ concerns — leave correctness, performance, and style to the other reviewers.
 
 ```bash
 # Scan for hardcoded secrets
-grep -rn "client_id\|client_secret\|api_key\|password\|token.*=.*\"" --include='*.swift' Sources/
-grep -rn "BEGIN.*PRIVATE\|Bearer " --include='*.swift' Sources/
+grep -rn "client_id\s*=\s*\"\|client_secret\s*=\s*\"\|api_key\s*=\s*\"\|password\s*=\s*\"" --include='*.swift' Sources/
+grep -rn "Bearer [A-Za-z0-9_-]" --include='*.swift' Sources/
 
 # Check for secrets in CI/CD
 grep -rn "secret\|token\|key\|password" .github/workflows/*.yml 2>/dev/null
@@ -116,7 +119,40 @@ grep -rn "CODE_SIGN_IDENTITY\|DEVELOPMENT_TEAM" .github/workflows/*.yml 2>/dev/n
 - [ ] Spotlight indexing (if any) doesn't expose email body content
 - [ ] Temporary files are cleaned up (no draft HTML left in `/tmp`)
 
-### 8. Entitlements Audit
+### 8. SQLCipher Database Encryption
+
+- [ ] Database is opened with SQLCipher encryption key from Keychain
+- [ ] Encryption key is stored with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
+- [ ] No fallback to unencrypted SQLite — SQLCipher is mandatory per CLAUDE.md
+- [ ] Key is accessed via `KeychainManager` with `let` binding — never stored as `var`
+- [ ] Database file is in app sandbox container (not a shared location)
+- [ ] `PRAGMA cipher_version` check exists to verify SQLCipher is active
+
+```bash
+# Check for unencrypted database usage
+grep -rn "DatabaseQueue\|DatabasePool" --include='*.swift' Sources/ | grep -v "cipher\|encrypt\|SQLCipher\|passphrase"
+# Check encryption key handling
+grep -rn "cipher\|passphrase\|databaseKey\|encryptionKey" --include='*.swift' Sources/
+```
+
+### 9. HTML Sanitization (WKWebView)
+
+- [ ] All external HTML (email bodies) is sanitized before loading in WKWebView
+- [ ] CID image references (`cid:`) are preserved during sanitization
+- [ ] `<script>` tags are stripped from email HTML
+- [ ] `javascript:` URLs are stripped from `href` attributes
+- [ ] `on*` event handlers (onclick, onerror, etc.) are stripped
+- [ ] External image loading is controlled (privacy — tracking pixels)
+- [ ] `<form>` elements are stripped or disabled in email rendering
+
+```bash
+# Check sanitization implementation
+grep -rn "sanitize\|HTMLSanitizer\|cleanHTML\|stripTags" --include='*.swift' Sources/
+# Check for unsafe HTML loading
+grep -rn "loadHTMLString\|loadFileURL" --include='*.swift' Sources/
+```
+
+### 10. Entitlements Audit
 
 ```bash
 # Review entitlements

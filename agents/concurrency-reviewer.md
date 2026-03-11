@@ -4,7 +4,10 @@ description: >
   Concurrency and API freshness reviewer for UnleashedMail. Detects race conditions,
   data races, actor isolation violations, unsafe threading patterns, and usage of
   deprecated Swift/Apple APIs. Invoke as part of the multi-reviewer workflow or
-  standalone when refactoring async code.
+  standalone when refactoring async code. Invoke automatically when writing or
+  modifying async/await code, actor definitions, Task/TaskGroup usage, Combine
+  publishers, ValueObservation callbacks, DispatchQueue usage, token refresh logic,
+  WKWebView calls from background threads, or any code crossing isolation boundaries.
 model: claude-sonnet-4-6
 allowed-tools: Read, Bash, Grep, Glob
 ---
@@ -28,7 +31,7 @@ grep -rn "@MainActor" --include='*.swift' Sources/
 grep -rn "class.*:.*ObservableObject" --include='*.swift' Sources/
 
 # Find mutable shared state without actor protection
-grep -rn "var.*=.*\[\|var.*=.*\[:\]" --include='*.swift' Sources/ | grep -v "private\|struct\|actor\|@MainActor"
+grep -rn "var.*=.*\[\|var.*=.*\[:\]" --include='*.swift' Sources/ | grep -v "struct\|actor\|@MainActor"
 
 # Find nonisolated access to actor properties
 grep -rn "nonisolated" --include='*.swift' Sources/
@@ -120,7 +123,7 @@ grep -rn "ValueObservation\|\.start(in:" --include='*.swift' Sources/
 
 ## Deprecation Audit
 
-### 7. Swift Language Deprecations
+### 7. Non-Preferred Patterns
 
 ```bash
 # Check for deprecated patterns
@@ -135,6 +138,23 @@ grep -rn "Hashable.*func hash(into\|var hashValue" --include='*.swift' Sources/
 - Raw locks (`NSLock`, `os_unfair_lock`) — use `actor` isolation instead
 - `hashValue` property — use `hash(into:)` (the property is auto-synthesized)
 - `class func` where `static func` suffices on a final class
+
+### 7.5. @unchecked Sendable Audit
+
+```bash
+# Find @unchecked Sendable usage — each must be justified
+grep -rn "@unchecked Sendable" --include='*.swift' Sources/
+```
+
+**Check for:**
+- [ ] Every `@unchecked Sendable` conformance has a comment explaining why it's safe
+- [ ] The type doesn't have mutable stored properties accessible without synchronization
+- [ ] Consider replacing with `actor` or proper `Sendable` conformance
+- [ ] If used for protocol conformance bridging (e.g., delegate types), verify thread safety
+
+**Flag as 🟡 WARNING:**
+- `@unchecked Sendable` without justification comment
+- `@unchecked Sendable` on a type with `var` stored properties
 
 ### 8. Apple Framework Deprecations
 

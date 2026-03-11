@@ -1,8 +1,8 @@
-# UnleashedMail — Claude Code Plugin v2.0
+# UnleashedMail — Claude Code Plugin v2.1.0
 
 A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email client supporting Gmail and Microsoft Graph, built with Swift 6, SwiftUI, AppKit, WKWebView, GRDB.swift (SQLCipher), and MVVM architecture.
 
-**12 agents · 10 skills · 3 commands · 29 files**
+**15 agents · 10 skills · 3 commands**
 
 ## Installation
 
@@ -48,7 +48,7 @@ claude --plugin-dir /path/to/unleashed-mail-plugin
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Agents (12)
+## Agents (15)
 
 ### Review Agents (run in parallel via orchestrator)
 
@@ -67,6 +67,14 @@ claude --plugin-dir /path/to/unleashed-mail-plugin
 | `db-engineer` | GRDB 7+ schema, SQLCipher, migrations (CRITICAL/DEFERRABLE), Record types, async observation |
 | `logic-engineer` | Service protocols, Gmail + Graph impls, ViewModels, AI pipeline routing, sync, mocks |
 | `ui-engineer` | SwiftUI views (macOS 15+), AppKit bridging, WKWebView composer, a11y, dual-impl updates |
+| `ai-engineer` | GARI AI pipeline — HTTPBasedAIProvider, ToolRegistry, PromptRegistry, AISafetyPipeline, AIAgentPipeline |
+
+### Stakeholder Persona Agents (used during brainstorming)
+
+| Agent | Perspective |
+|---|---|
+| `smb-entrepreneur` | SMB founder (15-person firm, 150 emails/day) — evaluates speed, workflow, cost, keyboard-first UX |
+| `enterprise-stakeholder` | IT director (500-5000 person org) — evaluates compliance, admin control, scale, SSO/MDM, security |
 
 ### Planning, Tracking & Diagnostic Agents
 
@@ -121,6 +129,25 @@ The plugin enforces these non-negotiable processes:
 6. **Security invariants** — SQLCipher encryption, Keychain-only tokens, `account_email` filtering, PIIRedactor, HTML sanitization
 7. **SwiftLint compliance** — Fix violations when touching files (functions ≤50 lines, files ≤600 lines)
 8. **Dual implementations** — Changes applied to both variants (native + WebKit compose, simple + full email detail, docked + floating AI)
+
+## Environment Setup
+
+Copy `.env.example` to `.env` and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+The `.env` file is gitignored and will not be distributed with the plugin.
+
+## Hooks
+
+The plugin includes PostToolUse hooks that run automatically:
+
+| Hook | Trigger | Behavior |
+|---|---|---|
+| `swift-lint-check.sh` | After Write/Edit | Syntax check, SwiftLint, `try!`/`as!` detection, token logging — **blocks on critical violations** |
+| `swift-build-verify.sh` | After Bash | Detects build/test commands and reminds to verify results |
 
 ## Baked-In Knowledge
 

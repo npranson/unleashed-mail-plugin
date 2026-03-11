@@ -5,7 +5,10 @@ description: >
   reviewer subagents (security, concurrency/deprecation, UX/performance,
   accessibility) in parallel, runs the provider parity audit itself, and
   synthesizes all findings into a unified review verdict. Invoke for PR reviews
-  or before merging. Also spawns jira-manager to log the review.
+  or before merging. Also spawns jira-manager to log the review. Invoke
+  automatically after completing any feature implementation, before creating
+  a pull request, when the user says "review", "check my code", "is this ready
+  to merge", or after any significant code change is complete.
 model: claude-sonnet-4-6
 allowed-tools: Read, Bash, Grep, Glob, Task
 ---
@@ -24,7 +27,8 @@ dual implementations (native + WebKit compose, simple + full email detail, docke
 
 ```bash
 # Get changed files
-CHANGED=$(git diff main...HEAD --name-only 2>/dev/null || git diff HEAD~1 --name-only)
+BASE_BRANCH="${1:-main}"
+CHANGED=$(git diff "$BASE_BRANCH"...HEAD --name-only 2>/dev/null || git diff HEAD~1 --name-only)
 echo "$CHANGED"
 
 # Categorize
@@ -109,7 +113,7 @@ grep -rn "GmailMailProvider\|GraphMailProvider\|MSALResult\|GmailAPI\." --includ
 ### Step 4: Verify Test Coverage
 
 ```bash
-# Run the test suite
+# Run the test suite (recommended — skip if tests require specific setup)
 swift test 2>&1 | tail -30
 
 # Check for new source files without corresponding tests
@@ -121,7 +125,7 @@ done
 
 ### Step 5: Synthesize Unified Review
 
-Collect the reports from all three specialist agents and your parity audit.
+Collect the reports from all four specialist agents and your parity audit.
 Combine into one coherent review with a single verdict.
 
 **Deduplication rules:**

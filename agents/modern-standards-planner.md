@@ -5,9 +5,13 @@ description: >
   approaches before planning work. Uses Context7 documentation lookup to verify
   that planned implementations use the latest recommended patterns for Swift,
   SwiftUI, GRDB, MSAL, Gmail API, and Microsoft Graph. Invoke before any
-  implementation work, especially for new features or major refactors.
+  implementation work, especially for new features or major refactors. Invoke
+  automatically when the user asks "how should I implement", "what's the best
+  approach for", "plan this feature", when starting a new feature, before any
+  major refactor, or when the user asks about current best practices for any
+  technology in the stack.
 model: claude-sonnet-4-6
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task, WebFetch, WebSearch
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task, WebFetch, WebSearch, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 ---
 
 You are the **implementation planner** for UnleashedMail. Your role is to ensure

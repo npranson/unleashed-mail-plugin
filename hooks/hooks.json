@@ -9,6 +9,15 @@
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/swift-lint-check.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/swift-build-verify.sh"
+          }
+        ]
       }
     ]
   }

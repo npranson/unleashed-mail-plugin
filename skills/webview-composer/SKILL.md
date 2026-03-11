@@ -35,10 +35,25 @@ func getComposerHTML() async throws -> String {
 }
 
 func execFormatCommand(_ command: String, value: String? = nil) {
-    let js = value != nil
-        ? "document.execCommand('\(command)', false, '\(value!)')"
-        : "document.execCommand('\(command)', false, null)"
+    let escapedCommand = command.jsEscaped()
+    let js: String
+    if let value {
+        let escapedValue = value.jsEscaped()
+        js = "document.execCommand('\(escapedCommand)', false, '\(escapedValue)')"
+    } else {
+        js = "document.execCommand('\(escapedCommand)', false, null)"
+    }
     webView.evaluateJavaScript(js)
+}
+
+// String extension for safe JS interpolation
+private extension String {
+    func jsEscaped() -> String {
+        self.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+    }
 }
 ```
 

@@ -26,7 +26,7 @@ Restate the feature request in your own words. Ask clarifying questions if ambig
 - **Why** is it needed (user pain point, missing capability)?
 - **Which providers** does it affect (Gmail, Graph, both)?
 
-## Step 2: Explore the Codebase
+## Step 3: Explore the Codebase
 
 Use Read, Grep, and Glob to understand the current state:
 
@@ -35,7 +35,7 @@ Use Read, Grep, and Glob to understand the current state:
 - Are there similar features we can model this after?
 - What's the current state of provider parity in the affected area?
 
-## Step 3: Design Proposal
+## Step 4: Design Proposal
 
 Present a concise design covering:
 
@@ -45,7 +45,7 @@ Present a concise design covering:
 4. **View** — UI changes (SwiftUI views, WKWebView changes)
 5. **Provider parity** — what both Gmail and Graph need, and any known asymmetries
 
-## Step 4: Research Modern Standards
+## Step 5: Research Modern Standards
 
 Launch the **`modern-standards-planner`** agent to research current best practices for every technology area this feature touches. The planner will:
 
@@ -56,7 +56,7 @@ Launch the **`modern-standards-planner`** agent to research current best practic
 
 Wait for the planner's research summary before finalizing.
 
-## Step 5: Stakeholder Review
+## Step 6: Stakeholder Review
 
 Launch both persona agents **in parallel** to pressure-test the design:
 
@@ -79,7 +79,7 @@ Collect both assessments and incorporate their findings:
 - Enterprise NEEDS WORK and SMB NICE TO HAVE items become backlog candidates
 - Missing requirements from both personas get added to the spec
 
-## Step 6: Edge Cases & Risks (Consolidated)
+## Step 7: Edge Cases & Risks (Consolidated)
 
 Merge technical risks with stakeholder findings:
 
@@ -88,7 +88,7 @@ Merge technical risks with stakeholder findings:
 - What could go wrong for SMB? (workflow disruption, speed regression, missing integrations)
 - Security considerations from both perspectives
 
-## Step 7: Summary for Approval
+## Step 8: Summary for Approval
 
 Present the design as a short spec incorporating:
 
@@ -101,7 +101,7 @@ Present the design as a short spec incorporating:
 - Dual implementation impacts (native + WebKit compose, etc.)
 - Requirements added from stakeholder review
 
-## Step 8: Create Planning Document (Mandatory)
+## Step 9: Create Planning Document (Mandatory)
 
 Per project CLAUDE.md, create `docs/planning/FEATURE_NAME_PLAN.md` using the template
 from the `modern-standards-planner` agent. This is non-negotiable — no implementation

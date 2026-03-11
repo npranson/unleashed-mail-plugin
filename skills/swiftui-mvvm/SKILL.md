@@ -13,8 +13,8 @@ allowed-tools: Read, Write, Edit, Grep, Glob
 
 ```
 View (SwiftUI/AppKit)
-  ↓ @StateObject / @ObservedObject
-ViewModel (@Observable or ObservableObject)
+  ↓ @State / @Environment
+ViewModel (@Observable, @MainActor)
   ↓ async calls
 Service (protocol-based)
   ↓
@@ -29,6 +29,7 @@ Use `@Observable` (macOS 14+) for new ViewModels. Fall back to `ObservableObject
 import Observation
 
 @Observable
+@MainActor
 final class ComposeViewModel {
     var to: String = ""
     var subject: String = ""

@@ -1,7 +1,7 @@
 {
   "name": "unleashed-mail",
   "version": "2.1.0",
-  "description": "Multi-agent development plugin for UnleashedMail — a native macOS 15+ email client supporting Gmail and Microsoft Graph, built with Swift 6, SwiftUI, AppKit, WKWebView, GRDB.swift (SQLCipher), and MVVM architecture. Includes 11 specialized agents, 10 auto-triggering skills, and 3 orchestration commands.",
+  "description": "Multi-agent development plugin for UnleashedMail — a native macOS 15+ email client supporting Gmail and Microsoft Graph, built with Swift 6, SwiftUI, AppKit, WKWebView, GRDB.swift (SQLCipher), and MVVM architecture. Includes 15 specialized agents, 10 auto-triggering skills, and 3 orchestration commands.",
   "author": {
     "name": "Nick Ranson",
     "url": "https://github.com/npranson"

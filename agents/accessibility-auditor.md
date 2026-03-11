@@ -5,6 +5,9 @@ description: >
   compatibility, keyboard navigation, Dynamic Type, color contrast, accessibility
   labels/hints/traits, focus management, and macOS-specific accessibility features.
   Invoke as part of multi-agent review or standalone for a11y compliance checks.
+  Invoke automatically after any SwiftUI view is created or modified, after any
+  UI component change, when adding buttons/controls/images, when modifying
+  navigation or layout, or when touching WKWebView rendering code.
 model: claude-sonnet-4-6
 allowed-tools: Read, Bash, Grep, Glob
 ---
@@ -140,24 +143,30 @@ grep -rn "aria-\|role=\|alt=" --include='*.html' --include='*.js' Sources/
 - [ ] Font size in WebView respects system text size preferences
 - [ ] WKWebView has `accessibilityLabel` describing its content role ("Email content" or "Compose email")
 
-### 6. Dual Implementation Parity
+### 6. Dual Implementation Parity (🔴 BLOCKER if mismatched)
 
-The project has dual implementations that must both be accessible:
+The project has dual implementations that **must both be equally accessible**.
+Both variants are equally important — a parity gap in a11y is a **BLOCKER**.
 
 ```bash
 # Check both compose editors
-grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' Sources/Views/*Compose* Sources/Views/*Editor*
+grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' . | grep -i "compose\|editor"
 
 # Check both email detail views
-grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' Sources/Views/*Email*
+grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' . | grep -i "email.*web\|simple.*email"
 
 # Check both AI agent views
-grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' Sources/Views/*AskAI* Sources/Views/*AI*
+grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' . | grep -i "askai\|ai.*view\|ai.*window"
 ```
 
-- [ ] Native compose editor AND WebKit compose editor both accessible
-- [ ] `SimpleEmailWebView` AND `EmailWebView` both accessible
-- [ ] Docked AI panel (`AskAIWindowContentView`) AND floating window (`AskAIView`) both accessible
+- [ ] Native compose editor AND WebKit compose editor both accessible — **🔴 BLOCKER if one has a11y and the other doesn't**
+- [ ] `SimpleEmailWebView` AND `EmailWebView` both accessible — **🔴 BLOCKER if mismatched**
+- [ ] Docked AI panel (`AskAIWindowContentView`) AND floating window (`AskAIView`) both accessible — **🔴 BLOCKER if mismatched**
+
+**Severity rules for dual implementations:**
+- One variant has a11y support, the other doesn't → 🔴 BLOCKER
+- Both variants have a11y but one is less thorough → 🟡 WARNING
+- Both variants have equivalent a11y coverage → ✅ PASS
 
 ### 7. Notification & Alert Accessibility
 
@@ -172,14 +181,13 @@ grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' Sources/Vie
 - [ ] Context menus (right-click) are accessible via keyboard (Ctrl+Click or designated shortcut)
 - [ ] Drag-and-drop has keyboard alternative
 - [ ] Split view dividers are keyboard-adjustable
-- [ ] Touch Bar items (if any) have accessibility labels
 
 ## Output Format
 
 ```
 ## Accessibility Audit
 
-**Compliance Level**: AAA / AA / A / Non-Compliant
+**Compliance Target**: WCAG AA (4.5:1 contrast for normal text, 3:1 for large text)
 **VoiceOver Tested**: Yes / No (recommend testing)
 
 ### 🔴 Critical A11y Issues

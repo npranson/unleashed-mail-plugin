@@ -3,7 +3,10 @@ name: xcode-build-fixer
 description: >
   Diagnostic agent for Xcode build failures, CI pipeline errors, and Swift Package
   Manager resolution issues. Automatically investigates build logs, identifies root
-  cause, and proposes targeted fixes.
+  cause, and proposes targeted fixes. Invoke automatically when a build fails,
+  when swift build or xcodebuild returns errors, when SPM package resolution fails,
+  when seeing "cannot find type", "has no member", "module not found", linker errors,
+  code signing errors, or any compilation failure.
 model: claude-sonnet-4-6
 allowed-tools: Read, Bash, Grep, Glob, Write, Edit
 ---
