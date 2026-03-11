@@ -103,6 +103,8 @@ Build the RFC 2822 message with proper MIME boundaries for attachments.
 
 Gmail pushes new message notifications via Google Cloud Pub/Sub.
 
+> **Note:** Replace `<your-gcp-project-id>` with the value of `GCP_PROJECT_ID` from the plugin `.env` file.
+
 ### Setup
 
 1. **Topic**: `projects/<your-gcp-project-id>/topics/gmail-push`
