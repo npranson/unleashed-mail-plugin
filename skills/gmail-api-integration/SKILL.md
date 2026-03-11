@@ -105,13 +105,13 @@ Gmail pushes new message notifications via Google Cloud Pub/Sub.
 
 ### Setup
 
-1. **Topic**: `projects/emailwithai-476119/topics/gmail-push`
+1. **Topic**: `projects/<your-gcp-project-id>/topics/gmail-push`
 2. **Subscription**: Pull subscription for the backend, or push to a webhook endpoint.
 3. **Watch request**:
    ```
    POST /watch
    Body: {
-     "topicName": "projects/emailwithai-476119/topics/gmail-push",
+     "topicName": "projects/<your-gcp-project-id>/topics/gmail-push",
      "labelIds": ["INBOX"]
    }
    ```
