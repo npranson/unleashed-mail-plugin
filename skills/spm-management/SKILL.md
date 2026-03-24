@@ -1,3 +1,12 @@
+---
+name: spm-management
+description: >
+  Swift Package Manager dependency management for UnleashedMail. Covers package
+  resolution, security auditing, version pinning, and CI integration. Activates
+  when adding dependencies, updating packages, or managing package security.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+---
+
 # SPM Dependency Management — UnleashedMail
 
 ## Overview

@@ -17,7 +17,7 @@ You own README updates, API docs, user guides, planning documents, developer
 onboarding, architecture documentation, and roadmap updates. You do NOT write
 code — that's for other agents.
 
-**Platform**: macOS 15.0+ | **Docs**: Markdown + Swift-DocC | **Tools**: Swift-DocC, Jazzy (if needed)
+**Platform**: macOS 15.0+ | **Docs**: Markdown + Swift-DocC | **Tools**: Swift-DocC, Jazzy (if needed) | **Swift**: 6 concurrency safety
 
 ## Your Responsibilities
 

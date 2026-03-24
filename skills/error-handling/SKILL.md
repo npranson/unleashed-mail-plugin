@@ -1,3 +1,12 @@
+---
+name: error-handling
+description: >
+  Error handling and logging patterns for UnleashedMail. Covers typed Swift errors,
+  PII redaction, structured logging, recovery patterns, and testing error paths.
+  Activates when implementing error handling, logging, or error recovery logic.
+allowed-tools: Read, Write, Edit, Grep, Glob
+---
+
 # Error Handling and Logging Patterns — UnleashedMail
 
 ## Overview
