@@ -6,49 +6,66 @@ echo "🔍 Running pre-commit checks..."
 
 EXIT_CODE=0
 
-# --- 1. SwiftLint check ---
-if command -v swiftlint >/dev/null; then
-    echo "📏 Running SwiftLint..."
-    LINT_OUTPUT=$(swiftlint --quiet 2>&1)
-    LINT_EXIT=$?
+# Detect if this is a Swift package repo
+HAS_SWIFT_PACKAGE=false
+if [ -f "Package.swift" ]; then
+    HAS_SWIFT_PACKAGE=true
+fi
 
-    if [ $LINT_EXIT -ne 0 ]; then
-        echo "❌ SwiftLint errors found:"
-        echo "$LINT_OUTPUT"
-        echo "💡 Run 'swiftlint --fix' to auto-fix some issues"
-        EXIT_CODE=1
+# --- 1. SwiftLint check (Swift repos only) ---
+if [ "$HAS_SWIFT_PACKAGE" = true ]; then
+    if command -v swiftlint >/dev/null; then
+        echo "📏 Running SwiftLint..."
+        LINT_OUTPUT=$(swiftlint --quiet 2>&1)
+        LINT_EXIT=$?
+
+        if [ $LINT_EXIT -ne 0 ]; then
+            echo "❌ SwiftLint errors found:"
+            echo "$LINT_OUTPUT"
+            echo "💡 Run 'swiftlint --fix' to auto-fix some issues"
+            EXIT_CODE=1
+        else
+            echo "✅ SwiftLint passed"
+        fi
     else
-        echo "✅ SwiftLint passed"
+        echo "⚠️  SwiftLint not installed — install with 'brew install swiftlint'"
     fi
 else
-    echo "⚠️  SwiftLint not installed — install with 'brew install swiftlint'"
+    echo "⏭️  Skipping SwiftLint (no Package.swift)"
 fi
 
-# --- 2. Build check ---
-echo "🔨 Running build check..."
-BUILD_OUTPUT=$(swift build --quiet 2>&1)
-BUILD_EXIT=$?
+# --- 2. Build check (Swift repos only) ---
+if [ "$HAS_SWIFT_PACKAGE" = true ]; then
+    echo "🔨 Running build check..."
+    BUILD_OUTPUT=$(swift build --quiet 2>&1)
+    BUILD_EXIT=$?
 
-if [ $BUILD_EXIT -ne 0 ]; then
-    echo "❌ Build failed:"
-    echo "$BUILD_OUTPUT"
-    EXIT_CODE=1
+    if [ $BUILD_EXIT -ne 0 ]; then
+        echo "❌ Build failed:"
+        echo "$BUILD_OUTPUT"
+        EXIT_CODE=1
+    else
+        echo "✅ Build succeeded"
+    fi
 else
-    echo "✅ Build succeeded"
+    echo "⏭️  Skipping build check (no Package.swift)"
 fi
 
-# --- 3. Test check (fast subset) ---
-echo "🧪 Running test subset..."
-# Run only critical tests that are fast
-TEST_OUTPUT=$(swift test --filter "Database\|Mock" --quiet 2>&1)
-TEST_EXIT=$?
+# --- 3. Test check (Swift repos only) ---
+if [ "$HAS_SWIFT_PACKAGE" = true ]; then
+    echo "🧪 Running test subset..."
+    TEST_OUTPUT=$(swift test --filter "Database\|Mock" --quiet 2>&1)
+    TEST_EXIT=$?
 
-if [ $TEST_EXIT -ne 0 ]; then
-    echo "❌ Tests failed:"
-    echo "$TEST_OUTPUT"
-    EXIT_CODE=1
+    if [ $TEST_EXIT -ne 0 ]; then
+        echo "❌ Tests failed:"
+        echo "$TEST_OUTPUT"
+        EXIT_CODE=1
+    else
+        echo "✅ Tests passed"
+    fi
 else
-    echo "✅ Tests passed"
+    echo "⏭️  Skipping tests (no Package.swift)"
 fi
 
 # --- 4. PII check in new files ---

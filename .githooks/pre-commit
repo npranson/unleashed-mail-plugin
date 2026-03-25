@@ -1,0 +1,12 @@
+#!/bin/bash
+# Git pre-commit hook — runs linting, build, tests, and PII checks
+# Install: git config core.hooksPath .githooks
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)/scripts"
+
+if [ -f "$SCRIPT_DIR/pre-commit-checks.sh" ]; then
+    bash "$SCRIPT_DIR/pre-commit-checks.sh"
+else
+    echo "⚠️  pre-commit-checks.sh not found at $SCRIPT_DIR"
+    exit 0
+fi

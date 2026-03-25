@@ -27,17 +27,6 @@
           }
         ]
       }
-    ],
-    "PreCommit": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/pre-commit-checks.sh"
-          }
-        ]
-      }
     ]
   }
 }
