@@ -8,7 +8,7 @@ description: >
   automatically when writing or modifying OAuth/auth code, Keychain access, token
   handling, WKWebView HTML loading, evaluateJavaScript calls, CI/CD workflows,
   entitlements files, or any code that handles secrets or user credentials.
-model: claude-opus-4-6
+model: opus
 allowed-tools: Read, Bash, Grep, Glob
 ---
 

@@ -8,7 +8,7 @@ description: >
   provider parity, dead code removal, security patterns, GRDB best practices, and
   general code quality. Invoke after completing a feature, before a PR, when the
   user says "simplify", "clean up", or "refactor", or via the /simplify skill.
-model: claude-opus-4-6
+model: opus
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

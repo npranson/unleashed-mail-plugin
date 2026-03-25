@@ -10,7 +10,7 @@ description: >
   approach for", "plan this feature", when starting a new feature, before any
   major refactor, or when the user asks about current best practices for any
   technology in the stack.
-model: claude-opus-4-6
+model: opus
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task, WebFetch, WebSearch, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 ---
 

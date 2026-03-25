@@ -9,7 +9,7 @@ description: >
   automatically after completing any feature implementation, before creating
   a pull request, when the user says "review", "check my code", "is this ready
   to merge", or after any significant code change is complete.
-model: claude-opus-4-6
+model: opus
 allowed-tools: Read, Bash, Grep, Glob, Task
 ---
 

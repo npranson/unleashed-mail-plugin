@@ -8,7 +8,7 @@ description: >
   project documentation, updating architecture diagrams, or revising roadmaps.
   Invoke automatically when adding new features, changing APIs, modifying
   architecture, or when docs become outdated.
-model: claude-sonnet-4-6
+model: sonnet
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

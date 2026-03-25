@@ -6,7 +6,7 @@ description: >
   post-release monitoring. Invoke when preparing releases, updating versions,
   generating changelogs, or submitting to app stores. Invoke automatically when
   merging to main, completing epics, or when release criteria are met.
-model: claude-sonnet-4-6
+model: sonnet
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 ---
 
