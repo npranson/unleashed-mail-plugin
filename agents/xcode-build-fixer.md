@@ -7,7 +7,7 @@ description: >
   when swift build or xcodebuild returns errors, when SPM package resolution fails,
   when seeing "cannot find type", "has no member", "module not found", linker errors,
   code signing errors, or any compilation failure.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read, Bash, Grep, Glob, Write, Edit
 ---
 

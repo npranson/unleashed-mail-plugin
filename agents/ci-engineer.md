@@ -6,7 +6,7 @@ description: >
   release pipelines. Invoke when setting up CI, troubleshooting build failures,
   optimizing pipelines, or managing deployments. Invoke automatically when CI fails,
   adding new build steps, updating dependencies, or preparing releases.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 ---
 

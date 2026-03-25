@@ -9,7 +9,7 @@ description: >
   touches list rendering, database queries in ViewModels, network fetch patterns,
   image loading, large data set handling, or when the user mentions slow UI,
   scroll performance, or memory issues.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read, Bash, Grep, Glob
 ---
 

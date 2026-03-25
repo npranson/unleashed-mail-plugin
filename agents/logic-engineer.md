@@ -9,7 +9,7 @@ description: >
   when creating ViewModels, defining service protocols, implementing Gmail or Graph
   API calls, building sync logic, handling errors, creating mock implementations,
   or when a feature needs both provider implementations.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

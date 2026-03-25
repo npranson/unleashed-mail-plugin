@@ -7,7 +7,7 @@ description: >
   and AIAgentPipeline orchestration. Invoke when working on AI features,
   adding new AI tools, creating prompts, building AI providers, modifying
   safety checks, or any code touching the AI agent system.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

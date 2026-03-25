@@ -6,7 +6,7 @@ description: >
   evaluating UnleashedMail for organization-wide deployment. Surfaces compliance,
   security, scale, admin control, and integration edge cases. Use during brainstorming
   and planning — not execution.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read
 ---
 

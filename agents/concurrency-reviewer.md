@@ -8,7 +8,7 @@ description: >
   modifying async/await code, actor definitions, Task/TaskGroup usage, Combine
   publishers, ValueObservation callbacks, DispatchQueue usage, token refresh logic,
   WKWebView calls from background threads, or any code crossing isolation boundaries.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read, Bash, Grep, Glob
 ---
 

@@ -6,7 +6,7 @@ description: >
   their inbox, juggles sales/ops/support, and needs an email client that saves time
   and helps close deals. Surfaces productivity, workflow, cost, and real-world usage
   edge cases. Use during brainstorming and planning — not execution.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read
 ---
 

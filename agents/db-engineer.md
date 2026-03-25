@@ -8,7 +8,7 @@ description: >
   Invoke automatically when adding new data models, creating or modifying database
   tables, writing GRDB queries, setting up ValueObservation, adding indexes, or
   when a feature requires persistent storage.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

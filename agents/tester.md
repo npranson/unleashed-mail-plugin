@@ -6,7 +6,7 @@ description: >
   Invoke when writing tests, maintaining test suites, analyzing coverage, or setting
   up automated testing workflows. Invoke automatically when adding new features,
   refactoring code, fixing bugs, or when test failures occur.
-model: claude-sonnet-4-6
+model: claude-opus-4-6
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
