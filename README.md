@@ -1,4 +1,4 @@
-# UnleashedMail — Claude Code Plugin v2.1.0
+# UnleashedMail — Claude Code Plugin v2.1.1
 
 A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email client supporting Gmail and Microsoft Graph, built with Swift 6, SwiftUI, AppKit, WKWebView, GRDB.swift (SQLCipher), and MVVM architecture.
 
