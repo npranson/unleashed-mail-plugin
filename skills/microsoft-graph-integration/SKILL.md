@@ -75,7 +75,7 @@ func createMSALApplication() throws -> MSALPublicClientApplication {
 ```swift
 func signIn(from window: NSWindow) async throws -> MSALResult {
     let application = try createMSALApplication()
-    let webviewParams = MSALWebviewParameters(authPresentationViewController: window.contentViewController!)
+    let webviewParams = MSALWebviewParameters()
     let interactiveParams = MSALInteractiveTokenParameters(scopes: MSALConfig.scopes, webviewParameters: webviewParams)
 
     return try await withCheckedThrowingContinuation { continuation in
@@ -219,7 +219,7 @@ POST /subscriptions
 
 ### Subscription Lifecycle
 
-- **Max expiration**: 4230 minutes (~2.9 days) for mail resources.
+- **Max expiration**: 10080 minutes (~7 days) for mail resources.
 - **Renewal**: Must call `PATCH /subscriptions/{id}` before expiry. Set a timer at 80% of the TTL.
 - **Validation**: Graph sends a validation token on creation — your endpoint must echo it back.
 
@@ -280,7 +280,7 @@ func incrementalSync(state: inout DeltaSyncState) async throws -> [GraphMessage]
 |---|---|---|
 | Mechanism | Pub/Sub (GCP) | Webhooks (HTTPS endpoint) |
 | Payload | historyId only | resource ID + changeType |
-| Max TTL | 7 days | ~2.9 days (mail) |
+| Max TTL | 7 days | ~7 days (mail) |
 | Offline fallback | history.list | delta queries |
 | Backend needed? | GCP project | HTTPS endpoint (or use delta polling) |
 

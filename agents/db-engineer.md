@@ -32,12 +32,12 @@ write UI code, ViewModels, or network code — those belong to other agents.
 Before writing any database code, check the `grdb-patterns` skill for project conventions.
 Key rules:
 
-- All models are **structs** with `Codable, FetchableRecord, PersistableRecord, Identifiable`
+- All models are **structs** with `Codable, FetchableRecord, MutablePersistableRecord, Identifiable, Sendable`
 - Tables use `autoIncrementedPrimaryKey("id")`
 - Migration names: `v{N}_{description}` — never modify existing migrations
 - Every column used in `WHERE` or `ORDER BY` gets an index
 - **Every query MUST filter by `account_email`** — prevents cross-account data leaks (security invariant)
-- Use `$select` projection — don't fetch columns you don't need
+- Use `select(Column(...))` projection — don't fetch columns you don't need
 - `ValueObservation` with `.removeDuplicates()` for write-heavy tables
 - Test with in-memory `DatabaseQueue` using the production migrator
 - **Never run CLI tools against the database while the app is running** — causes WAL corruption
@@ -164,7 +164,7 @@ migrator.registerMigration("v5_createDrafts") { db in
 ### 4. Write the Record Type
 
 ```swift
-struct Draft: Codable, FetchableRecord, PersistableRecord, Identifiable {
+struct Draft: Codable, FetchableRecord, MutablePersistableRecord, Identifiable, Sendable {
     var id: Int64?
     var accountEmail: String
     var toRecipients: [String]

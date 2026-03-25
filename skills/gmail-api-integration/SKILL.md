@@ -114,7 +114,8 @@ Gmail pushes new message notifications via Google Cloud Pub/Sub.
    POST /watch
    Body: {
      "topicName": "projects/<your-gcp-project-id>/topics/gmail-push",
-     "labelIds": ["INBOX"]
+     "labelIds": ["INBOX"],
+     "labelFilterBehavior": "include"
    }
    ```
 
@@ -139,6 +140,12 @@ Process history records to update the local GRDB database incrementally.
 - `messages.list` = 5 units
 - `messages.get` = 5 units
 - `messages.send` = 100 units
+- `threads.list` = 10 units
+- `threads.get` = 10 units
+- `history.list` = 2 units
+- `drafts.create` = 10 units
+- `drafts.update` = 15 units
+- `labels.list` = 5 units
 
 Implement exponential backoff on 429 responses:
 
@@ -161,6 +168,7 @@ func withRetry<T>(maxAttempts: Int = 5, _ operation: () async throws -> T) async
 - Development/testing: limited to 100 users without Google verification.
 - Production: requires OAuth consent screen verification (submitted to Google).
 - Sensitive scopes (`gmail.modify`, `gmail.send`) require additional review.
+- Restricted scopes (`mail.google.com/`) require third-party security assessment.
 
 ## Error Handling
 

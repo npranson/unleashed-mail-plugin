@@ -50,7 +50,7 @@ on:
 
 jobs:
   test:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode
@@ -68,7 +68,7 @@ jobs:
           file: .build/debug/codecov/*.json
 
   lint:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Install SwiftLint
@@ -77,7 +77,7 @@ jobs:
         run: swiftlint --strict --reporter github-actions-logging
 
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Build release
@@ -139,7 +139,7 @@ Split tests across multiple runners:
 
 ```yaml
 test:
-  runs-on: macos-14
+  runs-on: macos-15
   strategy:
     matrix:
       test-group: [1, 2, 3, 4]
@@ -154,7 +154,7 @@ Generate signed builds for distribution:
 
 ```yaml
 build:
-  runs-on: macos-14
+  runs-on: macos-15
   steps:
     - name: Build and sign
       run: |
@@ -201,7 +201,7 @@ on:
 
 jobs:
   release:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Build release
@@ -217,7 +217,7 @@ jobs:
             -exportPath UnleashedMail.app \
             -exportOptionsPlist exportOptions.plist
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: UnleashedMail.app
           generate_release_notes: true

@@ -61,7 +61,7 @@ grep -B5 "var body: some View" --include='*.swift' Sources/Views/ | grep "\.filt
 - [ ] `ForEach` over large collections uses `LazyVStack` / `LazyHStack`, not `VStack`
 - [ ] `DateFormatter` and `NumberFormatter` instances are static/cached — never created per render
 - [ ] Heavy images use `AsyncImage` or preloaded thumbnails, not raw `Image(nsImage:)` from disk
-- [ ] Views don't re-create child objects on every render (use `@State` or `@StateObject` for owned objects)
+- [ ] Views don't re-create child objects on every render (use `@State` for owned `@Observable` objects)
 - [ ] `NavigationSplitView` list column uses lazy loading for the message list
 
 ### 3. Database Query Performance

@@ -21,18 +21,18 @@ part of every UI change — this is stated in the project's CLAUDE.md and is non
 Use the current recommended APIs for macOS 15:
 
 ```swift
-// ✅ Modern (macOS 14+)
+// ✅ Modern accessibility modifiers
 .accessibilityLabel("Archive message")
 .accessibilityHint("Double-click to move to archive")
 .accessibilityAddTraits(.isButton)
 .accessibilityRemoveTraits(.isStaticText)
 .accessibilityValue(message.isRead ? "Read" : "Unread")
 .accessibilityElement(children: .combine)  // Combine child labels
-.accessibilityRepresentation {             // Custom representation (macOS 14+)
+.accessibilityRepresentation {             // Custom representation
     Button(label) { action() }
 }
 
-// ✅ Focus management (macOS 14+)
+// ✅ Focus management
 @AccessibilityFocusState private var isFocused: Bool
 .accessibilityFocused($isFocused)
 
@@ -43,7 +43,7 @@ Use the current recommended APIs for macOS 15:
     }
 }
 
-// ✅ ContentUnavailableView (macOS 14+) — built-in a11y
+// ✅ ContentUnavailableView — built-in a11y
 ContentUnavailableView("No Messages", systemImage: "tray", description: Text("Your inbox is empty"))
 ```
 

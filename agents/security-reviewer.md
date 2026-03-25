@@ -66,7 +66,7 @@ grep -rn "print.*token\|NSLog.*token\|os_log.*token\|logger.*token" --include='*
 
 - [ ] User-provided content interpolated into `evaluateJavaScript` is escaped
 - [ ] `WKScriptMessageHandler` validates message types before processing
-- [ ] No `javaScriptEnabled` override that weakens defaults
+- [ ] No `allowsContentJavaScript` override that weakens defaults (note: `javaScriptEnabled` is deprecated — check for both)
 - [ ] External links from email HTML are opened in the system browser, not the WebView
 - [ ] Content Security Policy headers are set on the composer HTML
 - [ ] No `file://` URL access from the WebView outside the app bundle

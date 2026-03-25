@@ -26,51 +26,75 @@ release automation. You do NOT write application code — that's for other agent
 6. **Post-release monitoring** — Track adoption, crashes, and feedback
 7. **Hotfix coordination** — Manage emergency releases
 
-## Semantic Versioning
+## Version Scheme
 
-Follow [SemVer](https://semver.org/):
+UnleashedMail uses a custom version format: **`MAJOR.MINOR|STATE.YYMMBB`**
 
-- **MAJOR**: Breaking changes (API changes, removed features)
-- **MINOR**: New features (backward compatible)
-- **PATCH**: Bug fixes (backward compatible)
+### Format Breakdown
 
-Determine version based on changes:
+Given version `1.02.260325`:
+- `1` = **MAJOR** — breaking changes, major redesigns
+- `0` = **MINOR** — new features (backward compatible)
+- `2` = **STATE** — release lifecycle stage:
+  - `0` = Pre-alpha
+  - `1` = Alpha
+  - `2` = Beta
+  - `3` = Release Candidate (RC)
+  - `4` = Official Release
+- `26` = **Year** (2026)
+- `03` = **Month** (March)
+- `25` = **Build** number (25th build that month)
+
+### Version Progression Examples
+
+```text
+1.02.260325  →  Beta, build 25 in March 2026
+1.02.260326  →  Beta, build 26 in March 2026 (next build)
+1.03.260401  →  RC, build 1 in April 2026 (promoted to RC)
+1.04.260405  →  Official release, build 5 in April 2026
+1.14.260501  →  Minor bump (new feature), official release, May build 1
+2.04.260601  →  Major bump (breaking change), official release, June build 1
+```
+
+### Determining the Next Version
 
 ```bash
-# Check recent commits for breaking changes
-git log --oneline --grep="BREAKING" --since="last release"
+# Get current version from Info.plist
+CURRENT=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "Unleashed Mail/Info.plist")
+echo "Current: $CURRENT"
 
-# Check for new features
-git log --oneline --grep="feat:" --since="last release"
+# Parse components
+MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+MINOR_STATE=$(echo "$CURRENT" | cut -d. -f2)
+MINOR=${MINOR_STATE:0:$(( ${#MINOR_STATE} - 1 ))}
+STATE=${MINOR_STATE: -1}
+DATE_BUILD=$(echo "$CURRENT" | cut -d. -f3)
 
-# Check for bug fixes
-git log --oneline --grep="fix:" --since="last release"
+echo "Major=$MAJOR Minor=$MINOR State=$STATE DateBuild=$DATE_BUILD"
 ```
+
+**Build bump** (most common — new build, same state):
+- Increment the build number: `1.02.260325` → `1.02.260326`
+
+**State promotion** (e.g., beta → RC):
+- Change state digit, reset build: `1.02.260325` → `1.03.260401`
+
+**Minor bump** (new feature):
+- Increment minor, keep state: `1.04.260405` → `1.14.260501`
+
+**Major bump** (breaking change):
+- Increment major, reset minor: `1.14.260501` → `2.04.260601`
 
 ## Version File Updates
 
 Update version in multiple places:
 
 ```swift
-// UnleashedMail/Info.plist
+// Unleashed Mail/Info.plist
 <key>CFBundleVersion</key>
-<string>1.2.3</string>
+<string>1.02.260325</string>
 <key>CFBundleShortVersionString</key>
-<string>1.2.3</string>
-
-// Package.swift
-let package = Package(
-    name: "UnleashedMail",
-    platforms: [.macOS(.v15)],
-    products: [.library(name: "UnleashedMail", targets: ["UnleashedMail"])],
-    dependencies: [],
-    targets: [
-        .target(name: "UnleashedMail", dependencies: []),
-        .testTarget(name: "UnleashedMailTests", dependencies: ["UnleashedMail"])
-    ]
-)
-
-// For SPM, version is in git tags
+<string>1.02.260325</string>
 ```
 
 ## Changelog Generation
@@ -161,33 +185,35 @@ codesign --sign "Developer ID Application: Your Name" UnleashedMail.dmg
 
 ## App Store Submission
 
-Use `altool` or Xcode for submission:
+Use `notarytool` (altool is deprecated) or Xcode for submission:
 
 ```bash
 # Validate before submission
-xcrun altool --validate-app \
-  --file "build/Release/UnleashedMail.pkg" \
-  --username "your-apple-id@example.com" \
-  --password "@keychain:altool"
+xcrun notarytool submit "build/Release/UnleashedMail.pkg" \
+  --apple-id "your-apple-id@example.com" \
+  --team-id "YOUR_TEAM_ID" \
+  --password "@keychain:notarytool" \
+  --wait
 
-# Upload to App Store
-xcrun altool --upload-app \
-  --file "build/Release/UnleashedMail.pkg" \
-  --username "your-apple-id@example.com" \
-  --password "@keychain:altool"
+# Upload to App Store Connect
+xcrun notarytool submit "build/Release/UnleashedMail.pkg" \
+  --apple-id "your-apple-id@example.com" \
+  --team-id "YOUR_TEAM_ID" \
+  --password "@keychain:notarytool" \
+  --wait
 ```
 
 ### TestFlight Distribution
 
-For beta releases:
+For beta releases, upload via Xcode or `xcodebuild`:
 
 ```bash
-# Upload to TestFlight
-xcrun altool --upload-app \
-  --file "build/Release/UnleashedMail.pkg" \
-  --username "your-apple-id@example.com" \
-  --password "@keychain:altool" \
-  --type TestFlight
+# Upload to App Store Connect (TestFlight)
+xcodebuild -exportArchive \
+  -archivePath UnleashedMail.xcarchive \
+  -exportPath build/Release \
+  -exportOptionsPlist release.plist \
+  -allowProvisioningUpdates
 ```
 
 ## Release Automation
@@ -202,7 +228,7 @@ on:
 
 jobs:
   release:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Set version

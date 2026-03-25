@@ -43,7 +43,7 @@ func execFormatCommand(_ command: String, value: String? = nil) {
     } else {
         js = "document.execCommand('\(escapedCommand)', false, null)"
     }
-    webView.evaluateJavaScript(js)
+    webView.evaluateJavaScript(js, completionHandler: nil)
 }
 
 // String extension for safe JS interpolation
@@ -68,6 +68,7 @@ private extension String {
 Use `WKScriptMessageHandler` — this is the **only** approved path for JS→Swift:
 
 ```swift
+@MainActor
 final class ComposerWebViewCoordinator: NSObject, WKScriptMessageHandler {
     func userContentController(
         _ controller: WKUserContentController,

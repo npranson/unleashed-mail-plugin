@@ -102,7 +102,7 @@ Use this table when implementing a feature to find the counterpart:
 | **Attachments (large)** | Multipart upload (<35MB) | Upload session (<150MB) |
 | **Push** | Pub/Sub `watch()` → historyId | Webhook subscription → resource ID |
 | **Incremental sync** | `GET /history?startHistoryId=` | `GET /me/mailFolders/inbox/messages/delta` |
-| **Push renewal** | Every 7 days | Every ~2.9 days |
+| **Push renewal** | Every 7 days | Every ~7 days |
 | **Pagination** | `pageToken` / `nextPageToken` | `@odata.nextLink` |
 | **Batch** | Gmail batch API (multipart) | `POST /$batch` (JSON, max 20 requests) |
 | **Search** | Gmail search syntax (`from:`, `subject:`, etc.) | `$filter` and `$search` OData parameters |

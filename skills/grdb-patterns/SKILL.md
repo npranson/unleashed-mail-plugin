@@ -16,7 +16,7 @@ All database models use GRDB's Record protocols. Define models as structs:
 ```swift
 import GRDB
 
-struct Email: Codable, FetchableRecord, PersistableRecord, Identifiable {
+struct Email: Codable, FetchableRecord, MutablePersistableRecord, Identifiable, Sendable {
     var id: Int64?
     var accountEmail: String
     var gmailId: String?

@@ -127,7 +127,7 @@ Use the Context7 MCP to pull current documentation. **Known library IDs** (skip 
 **SwiftUI** — Check for latest view patterns:
 - `NavigationSplitView` column customization
 - `.searchable` modifier enhancements
-- `.inspector` modifier (macOS 14+)
+- `.inspector` modifier
 - Custom container views
 - Animation and transition updates
 
@@ -251,7 +251,7 @@ library's GitHub README or official documentation site.
 ## Hard Rules
 
 1. **Never plan with deprecated APIs.** If the current codebase uses something deprecated, the plan should include migrating it.
-2. **Always verify minimum deployment target.** Don't plan for macOS 15 APIs if the target is macOS 14.
+2. **Always verify minimum deployment target.** The target is macOS 15.0+ (Sequoia) — macOS 15 APIs are available.
 3. **Every task must have test criteria.** No task is complete without specifying what to test.
 4. **Provider parity from the start.** If a task touches one mail provider, include the counterpart in the same task or the immediately following task.
 5. **Document your sources.** When recommending a specific pattern, note where you found it (Context7 doc path, URL, Apple docs section).

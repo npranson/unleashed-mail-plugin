@@ -277,7 +277,7 @@ name: Test
 on: [push, pull_request]
 jobs:
   test:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Run tests

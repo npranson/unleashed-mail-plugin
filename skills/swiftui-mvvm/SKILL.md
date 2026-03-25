@@ -23,7 +23,7 @@ Repository / GRDB layer
 
 ## ViewModel Conventions
 
-Use `@Observable` (macOS 14+) for new ViewModels. Fall back to `ObservableObject` only when interfacing with older AppKit code.
+Use `@Observable` for all new ViewModels. Fall back to `ObservableObject` only when interfacing with older AppKit code.
 
 ```swift
 import Observation
@@ -84,8 +84,13 @@ struct ComposeView: View {
             Button("Send") { Task { await viewModel.send() } }
                 .disabled(viewModel.isSending)
         }
-        .alert(item: $viewModel.error) { error in
-            Alert(title: Text("Error"), message: Text(error.localizedDescription))
+        .alert("Error", isPresented: Binding(
+            get: { viewModel.error != nil },
+            set: { if !$0 { viewModel.error = nil } }
+        ), presenting: viewModel.error) { _ in
+            Button("OK") { viewModel.error = nil }
+        } message: { error in
+            Text(error.localizedDescription)
         }
     }
 }

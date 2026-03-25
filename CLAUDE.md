@@ -4,7 +4,7 @@ You are working on **UnleashedMail**, a native macOS email client.
 
 ## Tech Stack
 
-- **Language**: Swift 5.9+ (Swift 6 concurrency safety enforced)
+- **Language**: Swift 6.0+ (Swift 6 concurrency safety enforced)
 - **UI**: SwiftUI + AppKit (hybrid), WKWebView for email composition & rendering
 - **Database**: GRDB.swift 7+ with **SQLCipher (AES-256)** encryption — never unencrypted SQLite
 - **Architecture**: MVVM with `@Observable` · Actors for thread safety · async/await over Combine

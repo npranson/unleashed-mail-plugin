@@ -89,7 +89,7 @@ struct MessageRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Double tap to open message")
-        .accessibilityAddTraits(message.isRead ? [] : .isSelected)
+        .accessibilityValue(message.isRead ? "Read" : "Unread")
     }
 
     private var accessibilityLabel: String {
@@ -183,11 +183,11 @@ HStack {
     Image(systemName: message.isStarred ? "star.fill" : "star")
     Text(message.subject)
 }
-.foregroundColor(message.isStarred ? .yellow : .gray)
+.foregroundStyle(message.isStarred ? .yellow : .gray)
 
 // ❌ Color only
 Text(message.subject)
-    .foregroundColor(message.isStarred ? .yellow : .primary)
+    .foregroundStyle(message.isStarred ? .yellow : .primary)
 ```
 
 ## VoiceOver Announcements
@@ -252,8 +252,7 @@ func testMessageRow_accessibility() throws {
 TextField("Email Address", text: $email)
     .accessibilityLabel("Recipient email address")
     .accessibilityHint("Enter the email address of the recipient")
-    .textContentType(.emailAddress)
-    .keyboardType(.emailAddress)
+    .textContentType(.username)
 ```
 
 ### Progress Indicators

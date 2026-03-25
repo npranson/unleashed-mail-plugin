@@ -20,7 +20,7 @@ email addresses, subjects, and content.
 Define typed errors for each domain:
 
 ```swift
-enum MailProviderError: Error, LocalizedError {
+enum MailProviderError: Error, LocalizedError, Sendable {
     case notAuthenticated
     case tokenExpired
     case interactionRequired
@@ -28,7 +28,7 @@ enum MailProviderError: Error, LocalizedError {
     case messageNotFound(id: String)
     case rateLimited(retryAfter: TimeInterval?)
     case serverError(code: Int, message: String)
-    case networkError(underlying: Error)
+    case networkError(description: String)
     case unsupportedOperation(provider: MailProviderType, operation: String)
 
     var errorDescription: String? {
@@ -50,8 +50,8 @@ enum MailProviderError: Error, LocalizedError {
             return "Rate limited. Please wait before retrying"
         case .serverError(let code, let message):
             return "Server error (\(code)): \(message)"
-        case .networkError(let underlying):
-            return "Network error: \(underlying.localizedDescription)"
+        case .networkError(let description):
+            return "Network error: \(description)"
         case .unsupportedOperation(let provider, let operation):
             return "\(operation) is not supported by \(provider.rawValue)"
         }
@@ -123,14 +123,13 @@ struct InboxView: View {
                 MessageListView(messages: messages)
             }
         }
-        .alert(item: $viewModel.error) { error in
-            Alert(
-                title: Text("Error"),
-                message: Text(error.localizedDescription),
-                dismissButton: .default(Text("OK")) {
-                    viewModel.error = nil
-                }
-            )
+        .alert("Error", isPresented: Binding(
+            get: { viewModel.error != nil },
+            set: { if !$0 { viewModel.error = nil } }
+        ), presenting: viewModel.error) { _ in
+            Button("OK") { viewModel.error = nil }
+        } message: { error in
+            Text(error.localizedDescription)
         }
     }
 }
@@ -194,9 +193,9 @@ struct PIIRedactor {
 ### Retry Logic
 
 ```swift
-func withRetry<T>(
+func withRetry<T: Sendable>(
     maxAttempts: Int = 3,
-    operation: () async throws -> T
+    operation: @Sendable () async throws -> T
 ) async throws -> T {
     for attempt in 1...maxAttempts {
         do {
@@ -224,8 +223,13 @@ func loadMessages() async {
     } catch MailProviderError.networkError {
         // Fall back to cached messages
         Logger.debug("Network unavailable, using cached messages", category: .network)
-        self.messages = try await dbQueue.read { db in
-            try MailMessage.fetchAll(db)
+        do {
+            self.messages = try await dbQueue.read { db in
+                try MailMessage.fetchAll(db)
+            }
+        } catch {
+            Logger.debug("Cache fallback also failed: \(error)", category: .database)
+            self.error = MailProviderError.networkError(description: error.localizedDescription)
         }
     } catch {
         // Show error for other failures

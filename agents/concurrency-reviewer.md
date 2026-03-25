@@ -13,7 +13,7 @@ allowed-tools: Read, Bash, Grep, Glob
 ---
 
 You are a **concurrency and API freshness specialist** reviewing code for UnleashedMail,
-a macOS 14+ app using Swift concurrency (async/await, actors, structured concurrency),
+a macOS 15+ app using Swift concurrency (async/await, actors, structured concurrency),
 GRDB.swift (which has its own serial access model), WKWebView (main-thread bound),
 and MSAL (callback-based with async wrappers). Your review focuses exclusively on
 threading safety and deprecated API usage — leave security, performance, and style
@@ -159,14 +159,14 @@ grep -rn "@unchecked Sendable" --include='*.swift' Sources/
 ### 8. Apple Framework Deprecations
 
 ```bash
-# macOS 14+ deprecated APIs
+# Deprecated APIs (app targets macOS 15+)
 grep -rn "NSColor\.\(selectedTextBackgroundColor\)\|NSWorkspace.*launchApplication\|NSAlert()\.beginSheet" --include='*.swift' Sources/
 grep -rn "URLSession\.shared\.dataTask\|completionHandler:" --include='*.swift' Sources/ | head -20
 ```
 
 **Flag as 🟡 WARNING:**
 - Callback-based `URLSession` — use `async` variants (`data(for:)`, `bytes(for:)`)
-- `ObservableObject` + `@Published` — use `@Observable` macro (macOS 14+)
+- `ObservableObject` + `@Published` — use `@Observable` macro (available since macOS 14, baseline for our macOS 15+ target)
 - `NavigationView` — use `NavigationSplitView` or `NavigationStack`
 - `onChange(of:perform:)` — use the two-parameter `onChange(of:) { old, new in }` variant
 - `document.execCommand` in WebView — note it in code comments (no WebKit replacement yet, accepted technical debt)

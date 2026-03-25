@@ -42,7 +42,7 @@ Common AADSTS error codes:
 - `AADSTS65001` — user hasn't consented to permissions
 - `AADSTS70011` — invalid scope
 - `AADSTS700016` — app not found in tenant
-- `AADSTS530003` — conditional access policy blocking
+- `AADSTS53003` — conditional access policy blocking
 
 **For API response issues:**
 ```bash
@@ -93,7 +93,7 @@ grep -rn "subscription\|changeType\|notificationUrl\|deltaLink" --include='*.swi
 **Webhook subscriptions not delivering:**
 1. Verify the `notificationUrl` is publicly reachable over HTTPS
 2. Check that the validation handshake is implemented (echo `validationToken` query param)
-3. Confirm subscription hasn't expired (max ~2.9 days for mail)
+3. Confirm subscription hasn't expired (max ~7 days / 10080 min for mail)
 4. Verify `clientState` matches on incoming notifications (reject if it doesn't)
 5. If using delta polling as fallback, confirm `deltaLink` is stored persistently
 

@@ -33,6 +33,7 @@ Use this workflow whenever you are:
    import XCTest
    @testable import UnleashedMail
 
+   @MainActor
    final class InboxViewModelTests: XCTestCase {
        func test_fetchEmails_updatesMessageList() async throws {
            // Arrange
@@ -95,12 +96,13 @@ func makeTestDatabase() throws -> DatabaseQueue {
 Use protocol-based dependency injection for testability:
 
 ```swift
-protocol EmailServiceProtocol {
+protocol EmailServiceProtocol: Sendable {
     func fetchInbox() async throws -> [Email]
     func send(_ draft: Draft) async throws
 }
 
-final class MockEmailService: EmailServiceProtocol {
+@MainActor
+final class MockEmailService: EmailServiceProtocol, @unchecked Sendable {
     var stubbedEmails: [Email] = []
     var sendCallCount = 0
 

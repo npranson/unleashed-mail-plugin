@@ -61,10 +61,7 @@ let package = Package(
 4. **Licensing**: Verify acceptable license
 
 ```bash
-# Add dependency
-swift package add https://github.com/example/package --from 1.0.0
-
-# Update Package.resolved
+# Add dependency — edit Package.swift directly, then resolve
 swift package resolve
 ```
 
@@ -84,9 +81,7 @@ swift package resolve
 # Check for updates
 swift package update
 
-# Update specific package
-swift package update GRDB
-
+# Note: SPM does not support updating a single package — this updates all
 # Check resolved versions
 cat Package.resolved
 ```
@@ -96,11 +91,9 @@ cat Package.resolved
 ### Vulnerability Scanning
 
 ```bash
-# Use swift-package-manager-security
-swift package plugin security
-
-# Or manual check
+# Manual dependency audit
 swift package show-dependencies
+swift package show-dependencies --format json
 ```
 
 ### Dependency Review
@@ -118,7 +111,7 @@ on:
 
 jobs:
   audit:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Audit dependencies
@@ -153,8 +146,7 @@ For large dependencies, use binary targets:
     dependencies: [
         "GRDB",
         .product(name: "MSAL", package: "microsoft-authentication-library-for-objc"),
-        // Debug-only dependencies
-        .product(name: "SwiftLint", package: "SwiftLint", condition: .when(configuration: .debug))
+        // SwiftLint is integrated as an SPM build plugin, not a library dependency
     ]
 )
 ```
@@ -205,16 +197,8 @@ mockolo --sourcelibs UnleashedMail --destination Mocks.swift
 
 ### Dependency Submission
 
-For Mac App Store, declare dependencies:
-
-```xml
-<!-- Info.plist -->
-<key>SPMDependencies</key>
-<array>
-    <string>GRDB</string>
-    <string>MSAL</string>
-</array>
-```
+SPM dependencies are automatically embedded during the Xcode archive/export process.
+No additional Info.plist configuration is needed for Mac App Store submissions.
 
 ## Troubleshooting
 

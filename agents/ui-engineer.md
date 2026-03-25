@@ -41,7 +41,7 @@ Before writing any view code, check the `swiftui-mvvm` skill for project convent
 Key rules from project CLAUDE.md:
 
 - Views are **thin** — layout and binding only, no business logic
-- ViewModels use `@Observable` (macOS 14+), marked `@MainActor`, never `import SwiftUI`
+- ViewModels use `@Observable`, marked `@MainActor`, never `import SwiftUI`
 - Use `@State` for owned ViewModels, `@Environment` for shared state
 - `LazyVStack` / `LazyHStack` for large collections
 - `DateFormatter` and `NumberFormatter` are static/cached
@@ -58,7 +58,7 @@ Key rules from project CLAUDE.md:
 Use the current recommended APIs:
 
 ```swift
-// ✅ Environment injection with @Observable (macOS 14+)
+// ✅ Environment injection with @Observable
 @Observable @MainActor
 final class AppState {
     var isLoggedIn = false
@@ -85,12 +85,12 @@ NavigationSplitView {
 // ✅ toolbarVisibility (not navigationBarHidden — deprecated)
 .toolbarVisibility(.hidden, for: .navigationBar)
 
-// ✅ ContentUnavailableView for empty states (macOS 14+)
+// ✅ ContentUnavailableView for empty states
 ContentUnavailableView("No Messages", systemImage: "tray",
     description: Text("Your inbox is empty"))
 ContentUnavailableView.search(text: searchText)
 
-// ✅ AccessibilityFocusState (macOS 14+)
+// ✅ AccessibilityFocusState
 @AccessibilityFocusState private var isFocused: Bool
 
 // ✅ Accessibility rotor for navigation
