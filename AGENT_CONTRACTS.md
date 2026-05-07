@@ -289,9 +289,16 @@ not block implementation).
 
 ## Cross-references
 
-- Project: `/Users/nick/Downloads/Projects/Mail/Unleashed Mail/CLAUDE.md`
-- Project rules: `.claude/rules/*.md` (8 path-scoped rules)
-- Nested CLAUDE.md: `Unleashed Mail/Sources/Services/CLAUDE.md`, `Unleashed Mail/Sources/Views/CLAUDE.md`,
+> Cross-references below describe the **consumer project layout** (what UnleashedMail
+> looks like when this plugin is loaded against it). Paths are repo-relative within the
+> consumer's checkout — they are NOT clickable links from this plugin repo, since the
+> plugin can be installed anywhere. Each agent reads these locations from inside the
+> consumer's working tree at runtime.
+
+- Project root CLAUDE.md: `<consumer-root>/CLAUDE.md` (top-level project rules)
+- Project rules: `<consumer-root>/.claude/rules/*.md` (8 path-scoped rules — auto-load by file path)
+- Nested CLAUDE.md (under `<consumer-root>/`):
+  `Unleashed Mail/Sources/Services/CLAUDE.md`, `Unleashed Mail/Sources/Views/CLAUDE.md`,
   `Unleashed Mail/Sources/Models/CLAUDE.md`, `Unleashed Mail/Sources/Utilities/CLAUDE.md`,
   `Unleashed Mail/Sources/Components/CLAUDE.md`, `Unleashed Mail/Sources/ViewModels/CLAUDE.md`
 - Review prompts: `.claude/prompts/codex-review.md`, `.claude/prompts/gemini-plan-review.md`,
