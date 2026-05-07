@@ -53,15 +53,15 @@ ContentUnavailableView("No Messages", systemImage: "tray", description: Text("Yo
 
 ```bash
 # Find views missing accessibility labels
-grep -rn "Button\|Toggle\|Slider\|Picker\|Image(" --include='*.swift' Sources/Views/ Sources/Components/ \
+grep -rn "Button\|Toggle\|Slider\|Picker\|Image(" --include='*.swift' "Unleashed Mail/Sources/Views/" "Unleashed Mail/Sources/Components/" \
   | grep -v "accessibilityLabel\|accessibilityHidden\|systemImage\|Label("
 
 # Find custom controls without accessibility traits
-grep -rn "\.onTapGesture\|\.gesture(" --include='*.swift' Sources/Views/ \
+grep -rn "\.onTapGesture\|\.gesture(" --include='*.swift' "Unleashed Mail/Sources/Views/" \
   | grep -v "accessibilityAddTraits"
 
 # Find images used as buttons without labels
-grep -rn "Image(systemName\|Image(" --include='*.swift' Sources/ \
+grep -rn "Image(systemName\|Image(" --include='*.swift' "Unleashed Mail/Sources/" \
   | grep -v "accessibilityLabel\|accessibilityHidden\|Label("
 ```
 
@@ -77,10 +77,10 @@ grep -rn "Image(systemName\|Image(" --include='*.swift' Sources/ \
 
 ```bash
 # Find views that might need keyboard shortcuts
-grep -rn "\.toolbar\|ToolbarItem\|\.commands" --include='*.swift' Sources/Views/
+grep -rn "\.toolbar\|ToolbarItem\|\.commands" --include='*.swift' "Unleashed Mail/Sources/Views/"
 
 # Check for existing keyboard shortcuts
-grep -rn "\.keyboardShortcut\|KeyEquivalent" --include='*.swift' Sources/
+grep -rn "\.keyboardShortcut\|KeyEquivalent" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 **Check for:**
@@ -96,10 +96,10 @@ grep -rn "\.keyboardShortcut\|KeyEquivalent" --include='*.swift' Sources/
 
 ```bash
 # Find hardcoded font sizes
-grep -rn "\.font(\.system(size:\|Font\.custom\|fontSize:" --include='*.swift' Sources/Views/ Sources/Components/
+grep -rn "\.font(\.system(size:\|Font\.custom\|fontSize:" --include='*.swift' "Unleashed Mail/Sources/Views/" "Unleashed Mail/Sources/Components/"
 
 # Find frame-locked text containers
-grep -rn "\.frame(height:\|\.frame(maxHeight:" --include='*.swift' Sources/Views/ \
+grep -rn "\.frame(height:\|\.frame(maxHeight:" --include='*.swift' "Unleashed Mail/Sources/Views/" \
   | grep -v "minHeight\|idealHeight"
 ```
 
@@ -109,15 +109,31 @@ grep -rn "\.frame(height:\|\.frame(maxHeight:" --include='*.swift' Sources/Views
 - [ ] Long text truncates gracefully with `lineLimit` + `.truncationMode(.tail)` rather than clipping
 - [ ] Important text is never solely inside images (unscalable)
 
+### 3.5. Curator Design System Compliance
+
+All views must use Curator design tokens (per `.claude/rules/swiftui-views.md`). Hardcoded primitives are an accessibility regression because Curator tokens carry baked-in contrast, Dynamic Type, and Light/Dark adaptation.
+
+- [ ] No hardcoded colors — uses `Color.curator*` or `CuratorTheme.*`, never raw `Color(hex:)` or `NSColor` literals
+- [ ] No hardcoded fonts/sizes — uses `Font.curator*` or system semantic fonts
+- [ ] Dividers use `CuratorDivider()`, not SwiftUI `Divider()`
+- [ ] Sheets use `.curatorSheetBackground()`, not raw `.background()`
+- [ ] Selection rows use `CuratorRadioOption`, not hand-rolled cells
+- [ ] Foreground styling uses `.foregroundStyle()` (not deprecated `.foregroundColor()`)
+
+```bash
+grep -rn "\.foregroundColor\|Color(hex:\|NSColor(" --include='*.swift' "Unleashed Mail/Sources/Views/" "Unleashed Mail/Sources/Components/"
+grep -rn "Divider()" --include='*.swift' "Unleashed Mail/Sources/Views/" | grep -v "CuratorDivider"
+```
+
 ### 4. Color & Visual Accessibility
 
 ```bash
 # Find hardcoded colors
-grep -rn "Color(\.\|#\|UIColor\|NSColor(" --include='*.swift' Sources/Views/ Sources/Components/ \
+grep -rn "Color(\.\|#\|UIColor\|NSColor(" --include='*.swift' "Unleashed Mail/Sources/Views/" "Unleashed Mail/Sources/Components/" \
   | grep -v "\.primary\|\.secondary\|\.accentColor\|\.clear\|Color\.label\|Color\.separator"
 
 # Find color-only state indicators
-grep -rn "\.foregroundColor\|\.tint\|foregroundStyle" --include='*.swift' Sources/Views/
+grep -rn "\.foregroundColor\|\.tint\|foregroundStyle" --include='*.swift' "Unleashed Mail/Sources/Views/"
 ```
 
 **Check for:**
@@ -132,7 +148,7 @@ grep -rn "\.foregroundColor\|\.tint\|foregroundStyle" --include='*.swift' Source
 
 ```bash
 # Check HTML template accessibility
-grep -rn "aria-\|role=\|alt=" --include='*.html' --include='*.js' Sources/
+grep -rn "aria-\|role=\|alt=" --include='*.html' --include='*.js' "Unleashed Mail/Sources/"
 ```
 
 **Check for:**

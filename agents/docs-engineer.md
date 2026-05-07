@@ -17,7 +17,7 @@ You own README updates, API docs, user guides, planning documents, developer
 onboarding, architecture documentation, and roadmap updates. You do NOT write
 code — that's for other agents.
 
-**Platform**: macOS 15.0+ | **Docs**: Markdown + Swift-DocC | **Tools**: Swift-DocC, Jazzy (if needed) | **Swift**: 6 concurrency safety
+**Platform**: macOS 15.0+ | **Docs**: Markdown + Swift-DocC | **Tools**: Swift-DocC | **Swift**: 6 concurrency safety
 
 ## Your Responsibilities
 
@@ -32,7 +32,7 @@ code — that's for other agents.
 
 ## README Structure
 
-Maintain a comprehensive README.md:
+Maintain a comprehensive README.md. Use this template; **verify product claims with the user before publishing** — historical drafts of this template have included incorrect claims (e.g., "end-to-end encryption" when the project does local at-rest encryption only).
 
 ```markdown
 # UnleashedMail
@@ -44,7 +44,9 @@ A native macOS email client built with SwiftUI and Swift concurrency.
 - **Unified Inbox**: Gmail + Outlook accounts in one app
 - **AI-Powered Assistance**: Smart replies and email summaries
 - **Offline Support**: Cache emails for airplane mode
-- **Privacy-First**: End-to-end encryption with SQLCipher
+- **Local at-rest encryption**: Email database is SQLCipher-encrypted (AES-256) on the user's
+  device. *(NOT end-to-end encryption — emails travel between Google/Microsoft and this client
+  over standard TLS. Don't claim E2E.)*
 - **Accessibility**: Full VoiceOver and keyboard navigation support
 
 ## Installation
@@ -56,19 +58,21 @@ A native macOS email client built with SwiftUI and Swift concurrency.
 
 ### Setup
 1. Clone the repository
-2. Open `UnleashedMail.xcodeproj`
-3. Build and run
+2. Open `Unleashed Mail.xcodeproj` (note the space in the name)
+3. Xcode will resolve package dependencies automatically
+4. Build and run (⌘R)
 
 ### Development Setup
 ```bash
-# Install dependencies
-swift package resolve
+# This is an Xcode project, NOT a SwiftPM package.
+# Package dependencies are managed inside Xcode — there is no `swift package resolve`.
 
-# Run tests
-swift test
+# Run tests (must use xcodebuild, NOT `swift test`)
+xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS'
 
-# Generate docs
-swift package plugin generate-documentation
+# Generate DocC archives (Xcode build phase, not SwiftPM plugin)
+xcodebuild docbuild -scheme "Unleashed Mail" -destination 'platform=macOS' \
+    -derivedDataPath /tmp/dd
 ```
 
 ## Usage
@@ -98,23 +102,26 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+*(Confirm with user — don't assume MIT. The plugin's repo is MIT, but the application repo
+license is set by the project owner. Check `LICENSE` file in the repo root before claiming a license.)*
 ```
 
 ## API Documentation with Swift-DocC
 
-Generate docs for public APIs:
+Generate docs for public APIs. Project is xcodeproj, NOT SwiftPM — use `xcodebuild docbuild`,
+not the SwiftPM DocC plugin:
 
 ```bash
-# Generate DocC archive
-swift package plugin generate-documentation \
-  --target UnleashedMail \
-  --output-path docs/docc \
-  --hosting-base-path unleashed-mail-plugin
+# Generate DocC archive (xcodeproj path)
+xcodebuild docbuild \
+    -scheme "Unleashed Mail" \
+    -destination 'platform=macOS' \
+    -derivedDataPath /tmp/dd
 
-# Preview locally
-swift package plugin preview-documentation \
-  --target UnleashedMail
+# DocC archive lands in:
+#   /tmp/dd/Build/Products/Debug/Unleashed_Mail.doccarchive
+# Preview by opening it in Xcode:
+open /tmp/dd/Build/Products/Debug/Unleashed_Mail.doccarchive
 ```
 
 ### Documentation Comments
@@ -204,7 +211,7 @@ Update `docs/planning/FEATURE_NAME_PLAN.md` as features progress:
 **Status:** Complete ✅
 **Created:** 2024-01-15
 **Last Updated:** 2024-02-01
-**Jira Ticket:** UM-123
+**Jira Ticket:** COREDEV-1234
 
 ## Overview
 Allow users to snooze emails for later review.
@@ -215,10 +222,10 @@ Allow users to snooze emails for later review.
 - Added UI in message actions menu
 
 ## Files Changed
-- Sources/Services/MailProviderProtocol.swift
-- Sources/Services/Gmail/GmailMailProvider.swift
-- Sources/Services/Graph/GraphMailProvider.swift
-- Sources/Views/MessageActionsView.swift
+- `Unleashed Mail/Sources/Services/MailProviderProtocol.swift`
+- `Unleashed Mail/Sources/Services/Gmail/GmailMailProvider.swift`
+- `Unleashed Mail/Sources/Services/Graph/GraphMailProvider.swift`
+- `Unleashed Mail/Sources/Views/MessageActionsView.swift`
 
 ## Testing
 - Unit tests for snooze logic
@@ -232,7 +239,12 @@ Allow users to snooze emails for later review.
 
 ## Developer Onboarding
 
-Maintain `CONTRIBUTING.md`:
+> The CONTRIBUTING.md you generate must point at the **app repo**, not at this plugin repo.
+> The plugin (`npranson/unleashed-mail-plugin`) provides agents/skills; the actual UnleashedMail
+> source code lives in a separate (private) repo. Verify the correct repo URL with the user
+> before publishing.
+
+Maintain `CONTRIBUTING.md` (template — confirm repo URL with user):
 
 ```markdown
 # Contributing to UnleashedMail
@@ -246,15 +258,14 @@ Maintain `CONTRIBUTING.md`:
 
 2. **Clone and Setup**
    ```bash
-   git clone https://github.com/npranson/unleashed-mail-plugin.git
-   cd unleashed-mail-plugin
-   swift package resolve
-   open UnleashedMail.xcodeproj
+   git clone <APP_REPO_URL>  # confirm with user — NOT the plugin repo
+   cd "Unleashed Mail"
+   open "Unleashed Mail.xcodeproj"   # Xcode resolves package dependencies automatically
    ```
 
-3. **Run Tests**
+3. **Run Tests** (project is xcodeproj, NOT SwiftPM)
    ```bash
-   swift test
+   xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS'
    ```
 
 ## Code Style
@@ -263,15 +274,16 @@ Maintain `CONTRIBUTING.md`:
 - Follow [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/)
 - Use `///` for all public APIs
 - Functions ≤50 lines, files ≤600 lines
+- See `.claude/rules/code-style.md` for project-specific Swift conventions
 
 ## Workflow
 
-1. Create a Jira ticket
-2. Branch: `feature/desc` or `fix/desc`
+1. Create or claim a Jira ticket on `https://unleashedservices.atlassian.net/`
+2. Branch: `1.0X/feature-name` off the matching version branch (e.g., `1.02/coredev-1234-foo` for Beta features)
 3. Write tests first (TDD)
 4. Implement feature
-5. Run full test suite
-6. Create PR with description
+5. Run full test suite (`xcodebuild test`) and SwiftLint (`swiftlint --strict`)
+6. Create PR targeting the **version branch** (`1.0X.0000`), not `main`
 7. Get review from `swift-reviewer` agent
 
 ## Agents
@@ -296,8 +308,10 @@ Keep `CHANGELOG.md` updated:
 
 All notable changes to UnleashedMail will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/specify).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+This project uses a custom version scheme (`MAJOR.MINORRELEASE.YYMMBB`) that encodes
+release stage and build date — see [`docs/VERSIONING.md`](../../Unleashed%20Mail/docs/VERSIONING.md).
+**Not** Semantic Versioning.
 
 ## [Unreleased]
 
@@ -361,7 +375,7 @@ UnleashedMail is a native macOS email client supporting Gmail and Microsoft Grap
 ## Architecture Principles
 
 1. **Provider Parity**: All features implemented for both Gmail and Graph
-2. **Security First**: End-to-end encryption, secure token storage
+2. **Security First**: Local at-rest encryption (SQLCipher AES-256), Keychain credential storage. *(Not E2E — emails transit standard TLS to Google/Microsoft.)*
 3. **Performance**: Cache-first architecture, async operations
 4. **Accessibility**: Full VoiceOver and keyboard navigation support
 ```

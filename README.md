@@ -1,8 +1,10 @@
-# UnleashedMail — Claude Code Plugin v2.1.3
+# UnleashedMail — Claude Code Plugin v2.2.0
 
 A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email client supporting Gmail and Microsoft Graph, built with Swift 6, SwiftUI, AppKit, WKWebView, GRDB.swift (SQLCipher), and MVVM architecture.
 
-**15 agents · 10 skills · 3 commands**
+**20 agents · 14 skills · 3 commands**
+
+> v2.2.0 introduces [`AGENT_CONTRACTS.md`](AGENT_CONTRACTS.md) — the source of truth for cross-agent boundaries (release contract, plan-implement gate, data→logic→ui handoff, AI pipeline ownership, code review pipeline, CI pinning, MCP tool prefixes, mandatory project gates). When two agents disagree about a boundary, the contracts doc wins.
 
 ## Installation
 
@@ -41,33 +43,36 @@ claude --plugin-dir /path/to/unleashed-mail-plugin
          │                    │                           │
          ▼                    ▼                           ▼
  ┌──────────────────────────────────────────────────────────────────────────────┐
- │                     AUTO-TRIGGERING SKILLS                                   │
+ │                     AUTO-TRIGGERING SKILLS (14)                              │
  │  swift-tdd · swiftui-mvvm · grdb-patterns · macos-debugging ·               │
  │  webview-composer · keychain-security · gmail-api · graph-api ·             │
- │  provider-parity · agent-orchestration                                      │
+ │  provider-parity · agent-orchestration · error-handling ·                   │
+ │  accessibility-patterns · swiftlint-config · spm-management                 │
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Agents (15)
+## Agents (20)
 
 ### Review Agents (run in parallel via orchestrator)
 
 | Agent | Specialization |
 |---|---|
 | `swift-reviewer` | **Orchestrator** — spawns all 4 reviewers, runs parity audit, synthesizes unified verdict |
-| `security-reviewer` | Credential exposure, OAuth/MSAL flaws, WKWebView injection, CI pipeline, entitlements, SQLCipher |
-| `concurrency-reviewer` | Data races, actor isolation, async/await, GRDB threading, deprecated APIs (Swift 6 enforced) |
-| `ux-perf-reviewer` | Main-thread responsiveness, SwiftUI rendering, query perf, perceived speed, error UX |
-| `accessibility-auditor` | VoiceOver, keyboard nav, Dynamic Type, color contrast, focus management, dual-impl a11y parity |
+| `security-reviewer` | Credential exposure, OAuth/MSAL flaws, WKWebView injection (HTMLSanitizer + HTMLRenderPipeline), CI pipeline, entitlements, SQLCipher |
+| `concurrency-reviewer` | Data races, actor isolation, async/await, GRDB threading, COREDEV-1578 Sendable matrix, deprecated APIs (Swift 6 enforced) |
+| `ux-perf-reviewer` | Main-thread responsiveness, SwiftUI rendering, query perf, image budget tiers, perceived speed, error UX |
+| `accessibility-auditor` | VoiceOver, keyboard nav, Dynamic Type, color contrast, focus management, Curator design system, dual-impl a11y parity |
 
-### Coding Agents (invoked per-layer during implementation)
+### Coding & Implementation Agents
 
 | Agent | Domain |
 |---|---|
-| `db-engineer` | GRDB 7+ schema, SQLCipher, migrations (CRITICAL/DEFERRABLE), Record types, async observation |
-| `logic-engineer` | Service protocols, Gmail + Graph impls, ViewModels, AI pipeline routing, sync, mocks |
-| `ui-engineer` | SwiftUI views (macOS 15+), AppKit bridging, WKWebView composer, a11y, dual-impl updates |
-| `ai-engineer` | GARI AI pipeline — HTTPBasedAIProvider, ToolRegistry, PromptRegistry, AISafetyPipeline, AIAgentPipeline |
+| `db-engineer` | GRDB 7+ schema (snake_case columns), SQLCipher, migrations (CRITICAL/DEFERRABLE), Record types, async observation, append-only |
+| `logic-engineer` | Service protocols, Gmail + Graph impls via `AccountScopedServiceProvider`, ViewModels, AI pipeline routing, sync, mocks |
+| `ui-engineer` | SwiftUI views (macOS 15+), AppKit bridging, WKWebView composer, Curator design tokens, `@State`-resolved services, a11y, dual-impl updates |
+| `ai-engineer` | GARI AI pipeline — HTTPBasedAIProvider (cloud) + BaseAIProvider (Apple Intelligence), ToolRegistry, PromptRegistry, inline safety (PIIRedactor + LLMInputSanitizer), AIAgentPipeline |
+| `tester` | Test strategy, MockServices.swift extension, `KeychainManager.resetInMemoryStore()` discipline, account-isolation invariants |
+| `code-simplifier` | 16-pass conservative simplification with deletion guardrails (selectors, IBActions, reflection-loaded code preserved) |
 
 ### Stakeholder Persona Agents (used during brainstorming)
 
@@ -80,25 +85,32 @@ claude --plugin-dir /path/to/unleashed-mail-plugin
 
 | Agent | Purpose |
 |---|---|
-| `modern-standards-planner` | Researches current best practices via Context7 (pre-loaded library IDs) + web search; creates planning docs |
-| `jira-manager` | Ticket lifecycle — creation, Epic linking, milestone updates, follow-up tickets (uses Atlassian MCP) |
-| `xcode-build-fixer` | Diagnoses and fixes Xcode/SPM/CI build failures |
-| `graph-api-debugger` | Microsoft Graph / MSAL auth troubleshooting |
+| `modern-standards-planner` | Researches current best practices via Context7 + web search; cites `.claude/rules/` as standards source; gates plans on dual review |
+| `jira-manager` | Ticket lifecycle — creation, Epic linking, milestone updates against `https://unleashedservices.atlassian.net/` (project key `COREDEV`) |
+| `docs-engineer` | README, API docs (DocC via xcodebuild), user guides, planning docs, architecture, roadmap |
+| `xcode-build-fixer` | Diagnoses and proposes fixes for Xcode build / package resolution failures (Ask-before for dependency changes) |
+| `graph-api-debugger` | Microsoft Graph / MSAL auth troubleshooting (Ask-before for auth/entitlements edits) |
+| `ci-engineer` | GitHub Actions workflows (SHA-pinned), Xcode Cloud, build automation, coordination with `bump-build-number.sh` Pre/Post-Action scripts |
+| `release-manager` | `MAJOR.MINORRELEASE.YYMMBB` versioning, App Store / TestFlight submission, defers BB-byte to automation |
 
-## Skills (10) — Auto-activate based on context
+## Skills (14) — Auto-activate based on context
 
 | Skill | Triggers When |
 |---|---|
-| `swift-tdd` | Implementing features, writing tests, refactoring |
+| `swift-tdd` | Implementing features, writing tests, refactoring (uses `xcodebuild test`) |
 | `swiftui-mvvm` | Building views, view models, navigation, state management |
 | `grdb-patterns` | Database models, migrations, queries, observation |
 | `macos-debugging` | Crashes, memory leaks, performance issues, build failures |
 | `webview-composer` | Email composition UI, contenteditable, JS bridge code |
 | `keychain-security` | OAuth tokens, credential storage, encryption |
 | `gmail-api-integration` | Gmail email fetching, sending, labels, Pub/Sub, OAuth flows |
-| `microsoft-graph-integration` | Outlook/M365 email, MSAL auth, Graph webhooks, delta queries |
+| `microsoft-graph-integration` | Outlook/M365 email, MSAL auth (added via Xcode UI), Graph webhooks, delta queries |
 | `provider-parity` | Any code touching provider-specific implementations or protocols |
 | `agent-orchestration` | Coordinating multi-agent workflows, determining parallel execution strategy |
+| `error-handling` | Error patterns, do-catch, Result types, error propagation |
+| `accessibility-patterns` | Accessibility implementation patterns for macOS/SwiftUI |
+| `swiftlint-config` | SwiftLint rule configuration, violation remediation |
+| `spm-management` | Xcode-managed package dependencies (NOT root SwiftPM), version pinning, security audit |
 
 ## Commands (3)
 

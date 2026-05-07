@@ -6,7 +6,7 @@ description: >
   implementations, sync services, or any code touching email fetching, sending,
   folder/label management, attachments, or push notification handling.
   Ensures both providers stay feature-aligned.
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent
 ---
 
 # Provider Parity — Gmail ↔ Microsoft Graph
@@ -147,12 +147,12 @@ func snooze(id: String, until: Date) async throws {
 For every protocol method, maintain parallel test cases:
 
 ```
-Tests/
-├── GmailTests/
+Unleashed MailTests/
+├── Gmail/
 │   └── GmailMailProviderTests.swift     ← tests with MockGmailAPI
-├── GraphTests/
+├── Graph/
 │   └── GraphMailProviderTests.swift     ← tests with MockGraphAPI
-└── SharedTests/
+└── Shared/
     └── MailProviderParityTests.swift    ← tests that run against BOTH providers
 ```
 
@@ -185,19 +185,20 @@ Run this before committing any provider-related change:
 
 ```bash
 # 1. Check protocol conformance — both providers compile
-swift build 2>&1 | grep "does not conform to protocol" | head -10
+xcodebuild build -scheme "Unleashed Mail" -destination 'platform=macOS' 2>&1 | grep "does not conform to protocol" | head -10
 
 # 2. Find TODO: PARITY markers
-grep -rn "TODO: PARITY\|FIXME: PARITY" --include='*.swift' Sources/
+grep -rn "TODO: PARITY\|FIXME: PARITY" --include='*.swift' "Unleashed Mail/Sources/"
 
 # 3. Count public methods per provider (should be roughly equal)
 echo "=== GmailMailProvider ==="
-grep -c "func " Sources/**/GmailMailProvider.swift 2>/dev/null || echo "not found"
+find "Unleashed Mail/Sources/" -name "GmailMailProvider.swift" -exec grep -c "func " {} \; 2>/dev/null || echo "not found"
 echo "=== GraphMailProvider ==="
-grep -c "func " Sources/**/GraphMailProvider.swift 2>/dev/null || echo "not found"
+find "Unleashed Mail/Sources/" -name "GraphMailProvider.swift" -exec grep -c "func " {} \; 2>/dev/null || echo "not found"
 
 # 4. Check for provider-specific types leaking outside the provider layer
-grep -rn "GmailMailProvider\|GraphMailProvider\|MSALResult\|GmailAPI\." --include='*.swift' Sources/ViewModels/ Sources/Views/
+grep -rn "GmailMailProvider\|GraphMailProvider\|MSALResult\|GmailAPI\." --include='*.swift' \
+    "Unleashed Mail/Sources/ViewModels/" "Unleashed Mail/Sources/Views/"
 ```
 
 Step 4 should return **zero results**. If a ViewModel or View references a concrete provider, that's a parity violation.

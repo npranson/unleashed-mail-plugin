@@ -18,15 +18,18 @@ Functions ≤50 lines (error), files ≤600 lines (error).
 ## SwiftLint Configuration
 
 ```yaml
-# .swiftlint.yml
+# .swiftlint.yml — paths quoted because they contain spaces (xcodeproj convention)
 included:
-  - Sources
-  - Tests
+  - "Unleashed Mail/Sources"
+  - "Unleashed MailTests"
+  - "Unleashed MailUITests"
 
 excluded:
-  - .build
   - DerivedData
-  - Packages
+  - SPMCache
+  - build
+  - GRDB
+  - Vendor
 
 # Line length — relaxed for readability
 line_length:
@@ -147,7 +150,7 @@ swiftlint
 swiftlint --fix
 
 # Check specific file
-swiftlint Sources/ViewModels/InboxViewModel.swift
+swiftlint "Unleashed Mail/Sources/ViewModels/InboxViewModel.swift"
 
 # Generate report
 swiftlint --reporter html > swiftlint-report.html

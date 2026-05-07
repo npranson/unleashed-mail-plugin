@@ -34,14 +34,16 @@ Key rules:
 
 - All models are **structs** with `Codable, FetchableRecord, MutablePersistableRecord, Identifiable, Sendable`
 - Tables use `autoIncrementedPrimaryKey("id")`
-- Migration names: `v{N}_{description}` — never modify existing migrations
+- Migration names: `v{N}_{description}` — never modify existing migrations (append-only)
 - Every column used in `WHERE` or `ORDER BY` gets an index
 - **Every query MUST filter by `account_email`** — prevents cross-account data leaks (security invariant)
+- **Column naming convention**: SQL columns use **snake_case** (`account_email`, `gmail_message_id`, `received_at`); Swift Record properties use camelCase (`accountEmail`, `gmailMessageId`, `receivedAt`). GRDB maps automatically when configured. Be deliberate — `Column("accountEmail")` will NOT match a `account_email` column.
 - Use `select(Column(...))` projection — don't fetch columns you don't need
 - `ValueObservation` with `.removeDuplicates()` for write-heavy tables
-- Test with in-memory `DatabaseQueue` using the production migrator
+- Test with in-memory `DatabaseQueue` using the production migrator (per `.claude/rules/database.md`: tests use `DatabaseQueue` only — no `DatabasePool`; `kdf_iter=4000` for speed)
 - **Never run CLI tools against the database while the app is running** — causes WAL corruption
 - Use `KeychainManager` for encryption key access — never derive or store as `var`
+- **Migration rollback is forbidden** — migrations are append-only. For data corruption, ship a forward-fix migration that detects and repairs affected rows, never a rollback script.
 
 ## GRDB 7+ Modern Patterns (from Context7)
 
@@ -123,40 +125,43 @@ When given a task:
 Present the migration before writing it:
 
 ```
-New table: `draft`
+New table: `draft` (SQL columns are snake_case; Swift Record properties are camelCase)
   - id: Int64 (PK, autoincrement)
-  - accountEmail: String (FK → account.email, indexed)
-  - toRecipients: Text (JSON array)
+  - account_email: String (FK → account.email, indexed)
+  - to_recipients: Text (JSON array)
   - subject: Text
-  - bodyHTML: Text
-  - createdAt: DateTime (indexed, for sorting)
-  - updatedAt: DateTime
-  - gmailDraftId: Text? (nullable — only set after Gmail sync)
-  - graphDraftId: Text? (nullable — only set after Graph sync)
+  - body_html: Text
+  - created_at: DateTime (indexed, for sorting)
+  - updated_at: DateTime
+  - gmail_draft_id: Text? (nullable — only set after Gmail sync)
+  - graph_draft_id: Text? (nullable — only set after Graph sync)
 
-Index: (accountEmail, createdAt DESC) — covers the drafts list query
+Index: (account_email, created_at DESC) — covers the drafts list query
 ```
 
 ### 3. Write the Migration
 
 ```swift
+// SQL columns are snake_case (per .claude/rules/database.md and project SQL convention).
+// Swift Record properties are camelCase. GRDB's CodingKeys / DatabaseColumnDecodingStrategy
+// maps between them when configured.
 migrator.registerMigration("v5_createDrafts") { db in
     try db.create(table: "draft") { t in
         t.autoIncrementedPrimaryKey("id")
-        t.column("accountEmail", .text).notNull()
+        t.column("account_email", .text).notNull()
             .references("account", onDelete: .cascade)
-        t.column("toRecipients", .text).notNull().defaults(to: "[]")
+        t.column("to_recipients", .text).notNull().defaults(to: "[]")
         t.column("subject", .text).notNull().defaults(to: "")
-        t.column("bodyHTML", .text).notNull().defaults(to: "")
-        t.column("createdAt", .datetime).notNull()
-        t.column("updatedAt", .datetime).notNull()
-        t.column("gmailDraftId", .text)
-        t.column("graphDraftId", .text)
+        t.column("body_html", .text).notNull().defaults(to: "")
+        t.column("created_at", .datetime).notNull()
+        t.column("updated_at", .datetime).notNull()
+        t.column("gmail_draft_id", .text)
+        t.column("graph_draft_id", .text)
     }
     try db.create(
         index: "idx_draft_account_created",
         on: "draft",
-        columns: ["accountEmail", "createdAt"]
+        columns: ["account_email", "created_at"]
     )
 }
 ```
@@ -166,16 +171,28 @@ migrator.registerMigration("v5_createDrafts") { db in
 ```swift
 struct Draft: Codable, FetchableRecord, MutablePersistableRecord, Identifiable, Sendable {
     var id: Int64?
-    var accountEmail: String
-    var toRecipients: [String]
+    var accountEmail: String         // SQL: account_email
+    var toRecipients: [String]       // SQL: to_recipients (JSON-encoded)
     var subject: String
-    var bodyHTML: String
-    var createdAt: Date
-    var updatedAt: Date
-    var gmailDraftId: String?
-    var graphDraftId: String?
+    var bodyHTML: String             // SQL: body_html
+    var createdAt: Date              // SQL: created_at
+    var updatedAt: Date              // SQL: updated_at
+    var gmailDraftId: String?        // SQL: gmail_draft_id
+    var graphDraftId: String?        // SQL: graph_draft_id
 
     static let databaseTableName = "draft"
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case accountEmail = "account_email"
+        case toRecipients = "to_recipients"
+        case subject
+        case bodyHTML = "body_html"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case gmailDraftId = "gmail_draft_id"
+        case graphDraftId = "graph_draft_id"
+    }
 
     mutating func didInsert(_ inserted: InsertionSuccess) {
         id = inserted.rowID
@@ -187,10 +204,12 @@ struct Draft: Codable, FetchableRecord, MutablePersistableRecord, Identifiable, 
 
 ```swift
 extension Draft {
+    // Filter MUST use the SQL column name (snake_case) — the Column() identifier
+    // resolves to the actual column, not the Swift property
     static func forAccount(_ accountEmail: String) -> QueryInterfaceRequest<Draft> {
         Draft
-            .filter(Column("accountEmail") == accountEmail)
-            .order(Column("createdAt").desc)
+            .filter(Column("account_email") == accountEmail)
+            .order(Column("created_at").desc)
     }
 }
 ```

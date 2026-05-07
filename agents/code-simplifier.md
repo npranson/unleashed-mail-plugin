@@ -36,8 +36,35 @@ git diff --name-only HEAD 2>/dev/null | grep '\.swift$'
 # If nothing uncommitted, use last commit
 git diff --name-only HEAD~1 HEAD 2>/dev/null | grep '\.swift$'
 
-# If given a branch context, use diff from main
-git diff main...HEAD --name-only 2>/dev/null | grep '\.swift$'
+# Branch-context diff — use the contract-aligned base detection (per
+# AGENT_CONTRACTS.md §1+§5). Hardcoding `main` reviews the wrong changeset
+# on 1.0X/feature-name branches.
+detect_base() {
+    local current prefix
+    current=$(git rev-parse --abbrev-ref HEAD)
+    prefix=$(echo "$current" | grep -oE '^1\.0[0-4]/' | tr -d '/')
+    if [ -n "$prefix" ]; then
+        if git rev-parse --verify "${prefix}.0000" >/dev/null 2>&1; then
+            echo "${prefix}.0000"; return
+        fi
+        # Explicit refspec — bare `git fetch origin BRANCH` only writes
+        # FETCH_HEAD, not refs/remotes/origin/BRANCH
+        git fetch origin --quiet \
+            "refs/heads/${prefix}.0000:refs/remotes/origin/${prefix}.0000" 2>/dev/null || true
+        if git rev-parse --verify "origin/${prefix}.0000" >/dev/null 2>&1; then
+            echo "origin/${prefix}.0000"; return
+        fi
+    fi
+    git fetch origin --quiet \
+        refs/heads/main:refs/remotes/origin/main 2>/dev/null || true
+    if git merge-base "$current" origin/main >/dev/null 2>&1; then
+        git merge-base "$current" origin/main
+    else
+        echo "main"
+    fi
+}
+BASE_BRANCH=$(detect_base)
+git diff "$BASE_BRANCH"...HEAD --name-only 2>/dev/null | grep '\.swift$'
 ```
 
 3. **Entire feature area** — if the user says "simplify the compose flow", find all
@@ -47,8 +74,18 @@ Read ALL target files before making any changes.
 
 ### Step 2: Analyze and Fix
 
-Run through each analysis pass below. For every issue found, **fix it immediately** —
-don't just flag it. Apply edits as you go.
+Run through each analysis pass below. For every issue found, **fix it conservatively** —
+don't just flag, but also don't slash-and-burn. Apply edits as you go, with these guardrails:
+
+**Conservative-edit guardrails (mandatory):**
+1. **Read the full source file** before deleting any function, property, or import — never delete on a single grep hit
+2. **Run tests after each substantive deletion**. If tests break, revert the deletion. AppKit/SwiftUI use a lot of selector- and reflection-loaded code (`@objc`, `IBAction`, `NSResponder` chain, `NSToolbarItem` validators, `WKScriptMessageHandler` callbacks) that look unused statically but are wired via runtime
+3. **Path-scoped rules auto-load by filename**. When extracting a `+Feature.swift` extension from a parent type, **preserve the parent type's name prefix** so the matching `.claude/rules/*.md` file continues to load. E.g., `HTMLSanitizer.swift` → `HTMLSanitizer+Inversion.swift` keeps `webview-editor.md` active; renaming to `LightModeInverter.swift` breaks rule auto-load
+4. **`@objc`-exposed methods, `IBAction`s, `@MainActor` selectors, and protocol conformances** are NEVER unused even if grep says so — they're called via the Objective-C runtime, NSResponder chain, or selector lookup
+5. **Imports of UIKit-bridged frameworks** (`AppKit`, `WebKit`, `Combine`, `OSLog`) may be needed for type inference or `@objc` exposure even if no symbol is directly referenced
+6. **When in doubt, surface to the user** rather than delete — flag with a `// TODO: simplify? possibly unused` comment in a separate commit so the user can decide
+
+If a planned deletion would touch >5 files, propose the deletion to the user and **wait for confirmation** before applying.
 
 ---
 
@@ -105,23 +142,23 @@ Eliminate duplication and promote reuse.
 **Identify duplicated logic:**
 ```bash
 # Find similar function signatures that might be duplicates
-grep -rn "func fetch\|func load\|func get" --include='*.swift' Sources/ | sort
+grep -rn "func fetch\|func load\|func get" --include='*.swift' "Unleashed Mail/Sources/" | sort
 ```
 
 - If two functions do the same thing with different names, consolidate
 - If similar code appears in Gmail and Graph providers, extract to a shared helper
 - If a pattern repeats 3+ times, extract a reusable utility (but not before 3 times)
 
-**Remove dead code:**
+**Remove dead code (carefully — see guardrails above):**
 ```bash
-# Find unused private functions
-grep -rn "private func\|private static func\|fileprivate func" --include='*.swift' Sources/
+# Find candidate-unused private functions
+grep -rn "private func\|private static func\|fileprivate func" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
-- Delete commented-out code blocks (not // TODO or // MARK comments)
-- Remove unused private methods, properties, and types
-- Remove unused imports
-- Delete empty conformance extensions with no methods
+- Delete **only** commented-out code blocks that are clearly dead (not // TODO, // MARK, or // FIXME comments)
+- Before removing a `private` method: confirm it's not selector-exposed (`@objc`, `Selector(...)`), not part of a protocol conformance, and not referenced from a `+Feature.swift` extension in the same type (Swift access control across files)
+- Before removing an import: confirm no type from that module is implicitly used (e.g., a `@MainActor` annotation requires `Foundation` exposure; `WKWebView` references need `WebKit`)
+- Empty conformance extensions are safe to remove ONLY if you've confirmed via build that no required methods are inherited from another extension
 
 **Consolidate related constants:**
 - Scattered magic numbers → named constants or enums
@@ -263,7 +300,7 @@ Check that both mail providers are consistent.
 
 ```bash
 # Find provider-specific code in ViewModels (should be zero)
-grep -rn "GmailMailProvider\|GraphMailProvider\|MSALResult\|GmailAPI\." --include='*.swift' Sources/ViewModels/ Sources/Views/ 2>/dev/null
+grep -rn "GmailMailProvider\|GraphMailProvider\|MSALResult\|GmailAPI\." --include='*.swift' "Unleashed Mail/Sources/ViewModels/" "Unleashed Mail/Sources/Views/" 2>/dev/null
 ```
 
 - ViewModels never reference concrete provider types
@@ -414,19 +451,31 @@ Clean up import statements to reduce noise and make dependencies explicit.
 
 ```bash
 # Find potentially unused imports
-for file in $(find Sources/ -name '*.swift'); do
+while IFS= read -r -d '' file; do
     imports=$(grep "^import " "$file" | awk '{print $2}')
     for imp in $imports; do
-        # Check if any symbol from this import is used (heuristic)
-        if [ "$imp" != "Foundation" ] && [ "$imp" != "SwiftUI" ]; then
-            usage=$(grep -c "$imp\." "$file" 2>/dev/null || echo 0)
-            if [ "$usage" -eq 0 ]; then
-                echo "Possibly unused: $imp in $file"
-            fi
+        # Check if any symbol from this import is used (heuristic — false positives common)
+        # Heuristic skips frameworks where direct module-prefix references are rare:
+        # - Foundation, SwiftUI: too pervasive to grep
+        # - Combine, OSLog: type inference + property wrappers may need import without explicit reference
+        # - WebKit, AppKit: needed for @objc bridging even when no symbol is referenced
+        case "$imp" in
+            Foundation|SwiftUI|Combine|OSLog|WebKit|AppKit) continue ;;
+        esac
+        # `grep -c PATTERN || echo 0` produces "0\n0" on no-match because both
+        # the failing grep AND the echo fallback fire — breaks numeric comparison.
+        # Use `|| true` and default with :-0.
+        usage=$(grep -c "$imp\." "$file" 2>/dev/null || true)
+        usage=${usage:-0}
+        if [ "$usage" -eq 0 ]; then
+            echo "Possibly unused: $imp in $file (verify before deleting — see guardrails)"
         fi
     done
-done
+done < <(find "Unleashed Mail/Sources/" -name '*.swift' -print0)
 ```
+
+> ⚠️ This is a heuristic. Confirm via build before deleting any import — the cost of a wrong
+> deletion (broken build, hours of debugging) far exceeds the cost of a stale import.
 
 **Check for and fix:**
 - Remove unused `import` statements (e.g., `import AppKit` in a file that only uses SwiftUI)

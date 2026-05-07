@@ -1,19 +1,22 @@
 #!/bin/bash
 # Pre-commit checks: run linting, tests, and build verification
 # Exits non-zero to BLOCK commits if critical issues are found
+#
+# This script targets the UnleashedMail Xcode project (NOT a SwiftPM package).
+# In other repos it does PII scanning only and skips Swift-build/test gracefully.
 
 echo "🔍 Running pre-commit checks..."
 
 EXIT_CODE=0
 
-# Detect if this is a Swift package repo
-HAS_SWIFT_PACKAGE=false
-if [ -f "Package.swift" ]; then
-    HAS_SWIFT_PACKAGE=true
+# Detect whether we're in the UnleashedMail Xcode project
+HAS_XCODEPROJ=false
+if [ -d "Unleashed Mail.xcodeproj" ]; then
+    HAS_XCODEPROJ=true
 fi
 
-# --- 1. SwiftLint check (Swift repos only) ---
-if [ "$HAS_SWIFT_PACKAGE" = true ]; then
+# --- 1. SwiftLint check (Xcode project only) ---
+if [ "$HAS_XCODEPROJ" = true ]; then
     if command -v swiftlint >/dev/null; then
         echo "📏 Running SwiftLint..."
         LINT_OUTPUT=$(swiftlint --quiet 2>&1)
@@ -31,67 +34,73 @@ if [ "$HAS_SWIFT_PACKAGE" = true ]; then
         echo "⚠️  SwiftLint not installed — install with 'brew install swiftlint'"
     fi
 else
-    echo "⏭️  Skipping SwiftLint (no Package.swift)"
+    echo "⏭️  Skipping SwiftLint (not in Unleashed Mail Xcode project)"
 fi
 
-# --- 2. Build check (Swift repos only) ---
-if [ "$HAS_SWIFT_PACKAGE" = true ]; then
+# --- 2. Build check (Xcode project only) ---
+if [ "$HAS_XCODEPROJ" = true ]; then
     echo "🔨 Running build check..."
-    BUILD_OUTPUT=$(swift build --quiet 2>&1)
+    BUILD_OUTPUT=$(xcodebuild build \
+        -scheme "Unleashed Mail" \
+        -destination 'platform=macOS' \
+        -quiet 2>&1)
     BUILD_EXIT=$?
 
     if [ $BUILD_EXIT -ne 0 ]; then
         echo "❌ Build failed:"
-        echo "$BUILD_OUTPUT"
+        echo "$BUILD_OUTPUT" | tail -30
         EXIT_CODE=1
     else
         echo "✅ Build succeeded"
     fi
 else
-    echo "⏭️  Skipping build check (no Package.swift)"
+    echo "⏭️  Skipping build check (not in Unleashed Mail Xcode project)"
 fi
 
-# --- 3. Test check (Swift repos only) ---
-if [ "$HAS_SWIFT_PACKAGE" = true ]; then
-    echo "🧪 Running test subset..."
-    TEST_OUTPUT=$(swift test --filter "Database\|Mock" --quiet 2>&1)
+# --- 3. Test subset check (Xcode project only) ---
+if [ "$HAS_XCODEPROJ" = true ]; then
+    echo "🧪 Running test subset (Database + Mock)..."
+    TEST_OUTPUT=$(xcodebuild test \
+        -scheme "Unleashed Mail" \
+        -destination 'platform=macOS' \
+        -only-testing:"Unleashed MailTests/DatabaseTests" \
+        -only-testing:"Unleashed MailTests/MockServicesTests" \
+        -quiet 2>&1)
     TEST_EXIT=$?
 
     if [ $TEST_EXIT -ne 0 ]; then
         echo "❌ Tests failed:"
-        echo "$TEST_OUTPUT"
+        echo "$TEST_OUTPUT" | tail -30
         EXIT_CODE=1
     else
         echo "✅ Tests passed"
     fi
 else
-    echo "⏭️  Skipping tests (no Package.swift)"
+    echo "⏭️  Skipping tests (not in Unleashed Mail Xcode project)"
 fi
 
-# --- 4. PII check in new files ---
+# --- 4. PII check in staged files (universal) ---
 echo "🔒 Checking for PII in new/modified files..."
 if command -v git >/dev/null; then
-    # Check staged files for potential PII
-    STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.swift$' || true)
+    # Use null-delimited paths so "Unleashed Mail/..." with embedded spaces survives.
+    # `for file in $VAR` would split on the spaces and skip real project files.
+    PII_PATTERNS=(
+        "apikey\|api_key\|API_KEY"
+        "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+        "Bearer [A-Za-z0-9_-]\{20,\}"
+        "sk-\|pk_\|secret"
+    )
 
-    for file in $STAGED_FILES; do
-        if [ -f "$file" ]; then
-            # Check for hardcoded emails, API keys, etc.
-            PII_PATTERNS=(
-                "apikey\|api_key\|API_KEY"
-                "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-                "Bearer [A-Za-z0-9_-]\{20,\}"
-                "sk-\|pk_\|secret"
-            )
-
-            for pattern in "${PII_PATTERNS[@]}"; do
-                if grep -n "$pattern" "$file" >/dev/null 2>&1; then
-                    echo "⚠️  Potential PII found in $file (pattern: $pattern)"
-                    echo "   Please review and use environment variables or secure storage"
-                fi
-            done
-        fi
-    done
+    while IFS= read -r -d '' file; do
+        case "$file" in *.swift) ;; *) continue ;; esac
+        [ -f "$file" ] || continue
+        for pattern in "${PII_PATTERNS[@]}"; do
+            if grep -n "$pattern" "$file" >/dev/null 2>&1; then
+                echo "⚠️  Potential PII found in $file (pattern: $pattern)"
+                echo "   Please review and use environment variables or secure storage"
+            fi
+        done
+    done < <(git diff --cached --name-only -z --diff-filter=ACM)
 fi
 
 # --- Summary ---

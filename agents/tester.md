@@ -30,36 +30,31 @@ new features; new features require unit tests; bug fixes require regression test
 
 ## Test Structure
 
-Follow the mirrored source structure:
+Tests live in `Unleashed MailTests/` (note the space in the directory name; quote it in shell).
+There is no `Tests/UnleashedMailTests/` directory — that path doesn't match this project's
+xcodeproj target layout.
 
 ```
-Tests/UnleashedMailTests/
+Unleashed MailTests/
 ├── ViewModels/
-│   ├── InboxViewModelTests.swift
-│   └── ComposeViewModelTests.swift
 ├── Services/
-│   ├── Gmail/
-│   │   ├── GmailMailProviderTests.swift
-│   │   └── MockGmailAPI.swift
-│   ├── Graph/
-│   │   ├── GraphMailProviderTests.swift
-│   │   └── MockGraphAPI.swift
-│   └── Shared/
-│       └── MailProviderParityTests.swift
 ├── Database/
-│   ├── EmailDatabaseTests.swift
-│   └── MockDatabaseQueue.swift
 ├── Utilities/
-│   └── PIIRedactorTests.swift
-└── Integration/
-    └── FullAppFlowTests.swift
+├── MockServices.swift                 ← shared mocks live here, NOT scattered per-file
+└── ...
 ```
+
+UI tests live in `Unleashed MailUITests/`.
 
 ## Mock Patterns
 
-Use protocol-based dependency injection for testability. Every service protocol gets a mock:
+Mocks for production services already live in `MockServices.swift`. **Use what's there before
+adding a new mock** — duplicating mock infrastructure in per-test files fragments the test
+suite and creates drift between mocks. Every service protocol has a mock; the convention is
+to extend `MockServices.swift` rather than introduce parallel mock files.
 
 ```swift
+// In MockServices.swift — the canonical location
 final class MockEmailService: EmailServiceProtocol {
     var stubbedEmails: [Email] = []
     var fetchInboxCallCount = 0
@@ -84,6 +79,24 @@ final class MockEmailService: EmailServiceProtocol {
 - Use `shouldThrow` for error path testing
 - Stub data with realistic values (e.g., non-empty strings, valid dates)
 - Mocks are internal to the test target — never shared with production code
+- **Do not introduce parallel mock infrastructure** — extend `MockServices.swift` or its existing helpers
+
+## Keychain in Tests (project rule)
+
+`KeychainManager` automatically uses an in-memory store under XCTest (via
+`TestEnvironment.isRunningTests`) — this avoids macOS authorization dialogs that block tests.
+
+**Mandatory:**
+- Call `KeychainManager.resetInMemoryStore()` in `tearDown()` of any test that touches keychain-backed code
+- **Do NOT call `SecItem*` (`SecItemAdd`, `SecItemUpdate`, etc.) directly in tests** — bypasses the in-memory store and triggers authorization prompts that hang CI
+- Tests should depend on `KeychainManager` exclusively for credential operations
+
+```swift
+override func tearDown() async throws {
+    KeychainManager.resetInMemoryStore()  // mandatory — clears state between tests
+    try await super.tearDown()
+}
+```
 
 ## Unit Test Patterns
 
@@ -153,8 +166,9 @@ final class EmailDatabaseTests: XCTestCase {
 
     func test_insertAndFetch_roundTripsEmail() throws {
         // Arrange
+        let accountEmail = "test@example.com"
         var email = Email(
-            accountEmail: "test@example.com",
+            accountEmail: accountEmail,
             subject: "Test Subject",
             sender: "sender@example.com",
             receivedAt: Date(),
@@ -166,12 +180,36 @@ final class EmailDatabaseTests: XCTestCase {
             try email.insert(db)
         }
 
-        // Assert
+        // Assert — ALWAYS filter by account_email, even when you "know" only one row exists.
+        // Bare Email.fetchAll(db) is the exact pattern the project's multi-account isolation
+        // tests are designed to catch (.claude/rules/database.md). Tests must model the
+        // production query pattern, not bypass it.
         let fetched = try dbQueue.read { db in
-            try Email.fetchAll(db)
+            try Email
+                .filter(Column("account_email") == accountEmail)
+                .fetchAll(db)
         }
         XCTAssertEqual(fetched.count, 1)
         XCTAssertEqual(fetched.first?.subject, "Test Subject")
+    }
+
+    func test_fetchAll_doesNotLeakAcrossAccounts() throws {
+        // Always include this kind of test for any new table — proves the account_email
+        // invariant holds before code review.
+        let accountA = "a@example.com"
+        let accountB = "b@example.com"
+        try dbQueue.write { db in
+            try Email(accountEmail: accountA, subject: "A", sender: "s@a.com",
+                      receivedAt: Date(), isRead: false).insert(db)
+            try Email(accountEmail: accountB, subject: "B", sender: "s@b.com",
+                      receivedAt: Date(), isRead: false).insert(db)
+        }
+
+        let fetchedForA = try dbQueue.read { db in
+            try Email.filter(Column("account_email") == accountA).fetchAll(db)
+        }
+        XCTAssertEqual(fetchedForA.count, 1)
+        XCTAssertEqual(fetchedForA.first?.subject, "A")
     }
 }
 ```
@@ -179,6 +217,7 @@ final class EmailDatabaseTests: XCTestCase {
 **Rules:**
 - Use production migrator to ensure schema matches
 - Test CRUD operations: insert, update, delete, fetch
+- **Every fetch test must filter by `account_email`** — bare `fetchAll` and bare `fetchOne` model the leak pattern, not the production pattern. Add a "doesNotLeakAcrossAccounts" companion test for any new table.
 - Test queries with filters, sorting, and joins
 - Verify foreign key constraints and indexes
 
@@ -234,7 +273,7 @@ Run coverage and analyze gaps:
 ```bash
 # Generate coverage report
 xcodebuild test \
-  -scheme UnleashedMail \
+  -scheme "Unleashed Mail" \
   -destination 'platform=macOS' \
   -enableCodeCoverage YES \
   -resultBundlePath /tmp/TestResults.xcresult
@@ -264,12 +303,13 @@ Update mocks when protocols change:
 
 ```bash
 # Find all mocks that need updating
-grep -rn "Mock.*Protocol" --include='*.swift' Tests/
+grep -rn "Mock.*Protocol" --include='*.swift' "Unleashed MailTests/"
 ```
 
 ## CI Integration
 
-Ensure tests run in GitHub Actions:
+Ensure tests run in GitHub Actions. Project is xcodeproj — use `xcodebuild test`,
+NOT `swift test`. Pin actions to commit SHAs per `AGENT_CONTRACTS.md §6`:
 
 ```yaml
 # .github/workflows/test.yml
@@ -279,11 +319,16 @@ jobs:
   test:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@<40-char-sha>  # actions/checkout v4.x
       - name: Run tests
-        run: swift test --enable-code-coverage
+        run: |
+          xcodebuild test \
+            -scheme "Unleashed Mail" \
+            -destination 'platform=macOS' \
+            -enableCodeCoverage YES \
+            -resultBundlePath /tmp/TestResults.xcresult
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@<40-char-sha>  # codecov-action v4.x
 ```
 
 **Rules:**

@@ -1,6 +1,6 @@
 ---
 description: Implement a feature using specialized coding agents (db, logic, UI) with TDD and modern standards
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent
 disable-model-invocation: true
 ---
 
@@ -91,13 +91,13 @@ After all three agents complete:
 
 2. **Run the full test suite**:
    ```bash
-   swift test 2>&1 | tail -30
+   xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS' 2>&1 | tail -30
    ```
 
 3. **Verify provider parity**:
    ```bash
-   grep -rn "TODO: PARITY" --include='*.swift' Sources/
-   grep -rn "GmailMailProvider\|GraphMailProvider" --include='*.swift' Sources/ViewModels/ Sources/Views/
+   grep -rn "TODO: PARITY" --include='*.swift' "Unleashed Mail/Sources/"
+   grep -rn "GmailMailProvider\|GraphMailProvider" --include='*.swift' "Unleashed Mail/Sources/ViewModels/" "Unleashed Mail/Sources/Views/"
    ```
 
 4. **Commit with conventional format**:

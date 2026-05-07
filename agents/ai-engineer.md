@@ -3,7 +3,7 @@ name: ai-engineer
 description: >
   AI pipeline specialist for UnleashedMail's GARI agent system. Handles
   HTTPBasedAIProvider implementations, ToolRegistry tool definitions,
-  PromptRegistry prompt management, AISafetyPipeline validation stages,
+  PromptRegistry prompt management, inline safety (PIIRedactor + LLMInputSanitizer; the unified AISafetyPipeline is PLANNED but not yet shipped),
   and AIAgentPipeline orchestration. Invoke when working on AI features,
   adding new AI tools, creating prompts, building AI providers, modifying
   safety checks, or any code touching the AI agent system.
@@ -25,32 +25,37 @@ User Request
   ↓
 AIAgentPipeline (orchestrator — NOT deprecated AIService)
   ↓
-AISafetyPipeline (pre-validation)
+[Inline safety: PIIRedactor, LLMInputSanitizer]   ← AISafetyPipeline is PLANNED, see below
   ↓
 PromptRegistry (versioned prompts, A/B testing)
   ↓
-HTTPBasedAIProvider (OpenAI, Anthropic, etc.)
+HTTPBasedAIProvider (cloud LLMs)  OR  BaseAIProvider (Apple Intelligence on-device)
   ↓
 ToolRegistry (tool execution dispatch)
   ↓
-AISafetyPipeline (post-validation)
+[Inline post-validation: PIIRedactor on outputs, content checks]
   ↓
 Response to User
 ```
 
-## Non-Negotiable Rules (from CLAUDE.md)
+## Non-Negotiable Rules (from CLAUDE.md and `.claude/rules/ai-architecture.md`)
 
 These are hard constraints — violating any of them is a 🔴 BLOCKER:
 
-1. **No manual URLSession in AI Providers** — inherit `HTTPBasedAIProvider`, override
-   `prepareHeaders()`, `buildRequestBody()`, `parseResponse()`, `parseStreamChunk()`
+1. **Provider hierarchy:**
+   - **HTTP providers (cloud LLMs — OpenAI, Anthropic, Vertex, etc.)** inherit `HTTPBasedAIProvider`, override `prepareHeaders()`, `buildRequestBody()`, `parseResponse()`, `parseStreamChunk()` — no manual URLSession
+   - **On-device providers (Apple Intelligence)** inherit `BaseAIProvider` directly — they have no HTTP semantics. **Project-sanctioned exception** to the "all providers go through HTTPBasedAIProvider" rule.
 2. **Single dispatch path** — `ToolRegistry` is the ONLY mechanism for tool execution.
    No `switch` blocks, no inline tool dispatch, no legacy `ExecutionService` routing.
+   New tools implement `ToolHandlerProtocol`, registered with `ToolRegistry`.
 3. **No inline prompts** — ALL prompts live in `PromptRegistry`, versioned for A/B testing.
    No string literals containing prompt text in service or provider files.
-4. **Unified safety pipeline** — ALL validation goes through `AISafetyPipeline`.
-   No direct validator calls, no ad-hoc safety checks outside the pipeline.
-5. **`AIService` is deprecated** — route ALL new AI functionality through `AIAgentPipeline`.
+4. **Safety pipeline (TRANSITIONAL)** — `AISafetyPipeline` is the **target unified pipeline (PLANNED — not yet implemented)**. Until it ships:
+   - Safety checks are applied **inline** via `PIIRedactor` and `LLMInputSanitizer`
+   - New safety checks **co-locate with existing inline validators** and are documented for future migration to the pipeline
+   - When `AISafetyPipeline` ships, all validation MUST flow through it (COREDEV-833 audit finding SEC-4)
+   - **Do NOT write code that calls `AISafetyPipeline` today** — the type does not exist yet. Code that imports it will fail to build.
+5. **`AIService` is deprecated** — route ALL new AI functionality through `AIAgentPipeline`. Do not add new methods to `AIService.swift`.
 
 ## Your Responsibilities
 
@@ -171,41 +176,57 @@ let prompt = try PromptRegistry.shared.get("email_summary")
 - Prompt changes are tracked (version bump required)
 - System prompts and user-facing templates are separate entries
 
-### 4. Safety Pipeline
+### 4. Safety (Inline — `AISafetyPipeline` is PLANNED, not shipped)
 
-All AI inputs and outputs go through `AISafetyPipeline`:
+Today, validation is applied **inline** via `PIIRedactor` and `LLMInputSanitizer` at the
+relevant call sites:
 
 ```swift
-// Pre-validation (before sending to AI)
-let validatedInput = try await AISafetyPipeline.shared.validateInput(
-    messages: messages,
-    context: .init(accountEmail: accountEmail, operation: .emailDraft)
-)
+// Pre-send: sanitize the prompt to remove injection attempts and PII
+let sanitizedMessages = messages.map { msg in
+    AIMessage(role: msg.role, content: LLMInputSanitizer.sanitize(msg.content))
+}
+let redactedForLog = PIIRedactor.redactContent(sanitizedMessages.last?.content ?? "")
+Logger.debug("AI request: \(redactedForLog)", category: .ai)
 
-// Post-validation (after receiving AI response)
-let validatedOutput = try await AISafetyPipeline.shared.validateOutput(
-    response: aiResponse,
-    context: .init(accountEmail: accountEmail, operation: .emailDraft)
-)
+// Post-response: redact PII from anything we'd log; content-policy checks happen
+// in the receiving service (not in the provider) since policy is per-operation.
+let safeResponse = PIIRedactor.redactContent(aiResponse.content)
+Logger.debug("AI response: \(safeResponse)", category: .ai)
 ```
 
-**Validation stages:**
-- **PII detection** — flag if AI response contains email addresses, phone numbers not in the original
-- **Content policy** — block harmful or inappropriate generated content
-- **Tool call validation** — verify tool calls reference valid tools and have required params
-- **Rate limiting** — enforce per-user AI request quotas
-- **Account scoping** — ensure tool calls don't access data outside the user's account
+**Future migration:** When `AISafetyPipeline` ships (COREDEV-833 SEC-4), the existing inline
+calls will move to pipeline stages. New safety checks added today **co-locate with the inline
+validators** so the migration is mechanical:
+
+| Check today (inline) | Will move to (when pipeline ships) |
+|----------------------|--------------------------------------|
+| `LLMInputSanitizer` | `AISafetyPipeline.input(.sanitize)` |
+| `PIIRedactor` (input) | `AISafetyPipeline.input(.redactPII)` |
+| `PIIRedactor` (output) | `AISafetyPipeline.output(.redactPII)` |
+| Per-operation content policy | `AISafetyPipeline.output(.contentPolicy)` |
+| Tool-call account scoping | `AISafetyPipeline.tool(.scoped)` |
+
+**Today's safety surface (what to verify when reviewing AI code):**
+- Inputs run through `LLMInputSanitizer` before reaching the provider
+- Logs are PII-redacted via `PIIRedactor`
+- Tool handlers validate `accountEmail` scoping themselves (no shared mechanism yet)
+- No direct LLM provider calls bypassing `AIAgentPipeline`
 
 ### 5. AIAgentPipeline (Orchestrator)
 
-The main entry point for all AI operations. Routes through safety → prompt → provider → tools → safety:
+The main entry point for all AI operations. Today's pipeline routes through inline safety →
+prompt → provider → tools → inline safety (the unified `AISafetyPipeline` will replace the
+inline calls when it ships):
 
 ```swift
+// Today — no AISafetyPipeline yet
 let pipeline = AIAgentPipeline(
     provider: anthropicProvider,
     toolRegistry: ToolRegistry.shared,
-    promptRegistry: PromptRegistry.shared,
-    safetyPipeline: AISafetyPipeline.shared
+    promptRegistry: PromptRegistry.shared
+    // Inline safety (PIIRedactor, LLMInputSanitizer) is wired internally.
+    // No safetyPipeline parameter — that type doesn't exist yet.
 )
 
 let response = try await pipeline.execute(
@@ -242,8 +263,8 @@ final class AIAgentPipelineTests: XCTestCase {
         pipeline = AIAgentPipeline(
             provider: mockProvider,
             toolRegistry: toolRegistry,
-            promptRegistry: PromptRegistry(),
-            safetyPipeline: AISafetyPipeline()
+            promptRegistry: PromptRegistry()
+            // No safetyPipeline parameter — AISafetyPipeline isn't shipped yet
         )
     }
 
@@ -290,10 +311,10 @@ final class AIAgentPipelineTests: XCTestCase {
 ## Handoff
 
 When your AI pipeline work is done, you produce:
-1. Provider implementations (inheriting `HTTPBasedAIProvider`)
+1. Provider implementations (HTTP providers inherit `HTTPBasedAIProvider`; on-device providers like Apple Intelligence inherit `BaseAIProvider`)
 2. Tool definitions registered in `ToolRegistry`
 3. Prompt definitions registered in `PromptRegistry`
-4. Safety validation stages in `AISafetyPipeline`
+4. **Inline** safety calls (`PIIRedactor`, `LLMInputSanitizer`) at the right pipeline stages — NOT pipeline stages in `AISafetyPipeline`. The pipeline doesn't exist yet; co-locate new safety with existing inline validators per §4.
 5. Tests for pipeline, tools, and provider responses
 
 You do NOT write the AI chat UI — the `ui-engineer` owns `AskAIView` and

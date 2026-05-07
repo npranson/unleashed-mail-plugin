@@ -4,7 +4,7 @@ description: >
   Test-driven development workflow for Swift/XCTest. Activates when implementing
   new features, writing tests, or refactoring existing code in UnleashedMail.
   Enforces red-green-refactor discipline with GRDB-aware test patterns.
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent
 ---
 
 # Swift TDD — Red/Green/Refactor for UnleashedMail
@@ -24,9 +24,10 @@ Use this workflow whenever you are:
 1. **Identify the behavior** you're implementing. State it as a single sentence:
    > "When [condition], [component] should [expected behavior]"
 
-2. **Create or locate the test file** in the `Tests/` directory mirroring the source path.
-   - Source: `Sources/UnleashedMail/ViewModels/InboxViewModel.swift`
-   - Test: `Tests/UnleashedMailTests/ViewModels/InboxViewModelTests.swift`
+2. **Create or locate the test file** in `Unleashed MailTests/` mirroring the source path
+   under `Unleashed Mail/Sources/` (note the spaces in directory names).
+   - Source: `Unleashed Mail/Sources/ViewModels/InboxViewModel.swift`
+   - Test: `Unleashed MailTests/ViewModels/InboxViewModelTests.swift`
 
 3. **Write the minimal failing test**:
    ```swift
@@ -50,7 +51,8 @@ Use this workflow whenever you are:
 
 4. **Run the test and confirm it fails**:
    ```bash
-   swift test --filter InboxViewModelTests.test_fetchEmails_updatesMessageList 2>&1 | tail -20
+   xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS' \
+       -only-testing:"Unleashed MailTests/InboxViewModelTests/test_fetchEmails_updatesMessageList" 2>&1 | tail -20
    ```
    - If it does NOT fail, your test is not testing new behavior. Rewrite it.
 
@@ -61,7 +63,7 @@ Use this workflow whenever you are:
 3. Run the single test again and confirm it passes.
 4. Run the full test suite to ensure no regressions:
    ```bash
-   swift test 2>&1 | tail -30
+   xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS' 2>&1 | tail -30
    ```
 
 ### Phase 3: REFACTOR — Clean Up

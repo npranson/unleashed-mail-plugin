@@ -5,7 +5,7 @@ description: >
   when coordinating multi-agent workflows, determining which agents to run, or
   deciding execution order. Defines dependency rules and parallelization strategies
   for all agent combinations.
-allowed-tools: Task, Read, Grep, Glob, Bash
+allowed-tools: Agent, Read, Grep, Glob, Bash
 ---
 
 # Agent Orchestration — Flexible Parallel Execution
@@ -43,7 +43,7 @@ allowed-tools: Task, Read, Grep, Glob, Bash
 
 ### Rule 1: Independent agents ALWAYS run in parallel
 
-When spawning agents via `Task`, launch all independent agents in a single message.
+When spawning agents via the `Agent` tool, launch all independent agents in a single message.
 Do NOT wait for one to finish before starting another if they don't depend on each other.
 
 ```

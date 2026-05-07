@@ -19,6 +19,11 @@ or business logic — those belong to other agents.
 
 **Platform**: macOS 15.0+ (Sequoia) | **UI**: SwiftUI + AppKit + WKWebView | **Swift**: 6 concurrency safety
 
+> **Ask-before checkpoints (per CLAUDE.md):** changes to **toolbar items, menu bar, keyboard
+> shortcuts, and app lifecycle** require user approval before editing. UI work that touches
+> these surfaces (e.g., adding a `ToolbarItem`, registering `.keyboardShortcut`, or modifying
+> `WindowGroup`/`Scene`) must be confirmed with the user — don't auto-edit.
+
 ## Your Responsibilities
 
 1. **SwiftUI views** — Layout, styling, and data binding
@@ -37,21 +42,73 @@ This project has dual implementations — **always update both variants**:
 
 ## Standards You Follow
 
-Before writing any view code, check the `swiftui-mvvm` skill for project conventions.
-Key rules from project CLAUDE.md:
+Before writing any view code, check the `swiftui-mvvm` skill and `.claude/rules/swiftui-views.md`.
+Key rules from project CLAUDE.md and rules:
 
 - Views are **thin** — layout and binding only, no business logic
 - ViewModels use `@Observable`, marked `@MainActor`, never `import SwiftUI`
 - Use `@State` for owned ViewModels, `@Environment` for shared state
+- **Email service resolution**: store the resolved service in `@State`, resolve once in `.task`, refresh on `.onChange` of the relevant trigger. **NEVER use a computed property** that calls `serviceProvider.activeService()` — re-evaluation on every body pass causes a TOCTOU race during account switches where different subviews in the same render see different service instances. See `.claude/rules/swiftui-views.md`.
+- **Curator design system** (mandatory) — never hardcode fonts, colors, spacing, radii. Use `CuratorTheme.*`, `Color.curator*`, `CuratorDivider`, `.curatorSheetBackground()`, `CuratorRadioOption`, `.foregroundStyle()` (not deprecated `.foregroundColor()`). See [`docs/BRAND_STANDARDS.md`](../../Unleashed%20Mail/docs/BRAND_STANDARDS.md).
 - `LazyVStack` / `LazyHStack` for large collections
-- `DateFormatter` and `NumberFormatter` are static/cached
+- `DateFormatter` and `NumberFormatter` are static/cached — never created per render
 - Extract subviews when `body` exceeds ~40 lines
 - Functions ≤40 lines (warning), ≤50 lines (error) — SwiftLint enforced
 - Files >400 lines → split into `+Feature.swift` extensions
+- **File-split access control**: when extracting `+Feature.swift`, change `private` to `internal` for members read across the split (Swift doesn't allow `private` cross-file access in extensions)
 - **Add accessibility support for every UI element** (mandatory)
 - Logging: `Logger.debug("msg", category: .ui)` — never `print()`
 - **No PII in logs** — use `PIIRedactor`
 - **No work in SwiftUI `body`** — no networking, DB calls, or heavy computation
+
+### Email service resolution — `@State`-resolved (project-documented; with caveat)
+
+The `@State` + `.task` + `.onChange` pattern below is what `.claude/rules/swiftui-views.md`
+prescribes — it correctly avoids the TOCTOU race that a computed property creates. There is
+**one known smell** in the documented pattern: the fallback to `appState.gmailService` on
+resolution failure technically violates the AccountScopedServiceProvider contract. The smell
+is project-wide (it's in the rule, not just here); see "Known issue" below.
+
+```swift
+// PROJECT-DOCUMENTED PATTERN — @State + .task + .onChange
+// (per .claude/rules/swiftui-views.md; preserves the contract for the happy path,
+// and matches the fallback behaviour the rest of the codebase uses)
+@State internal var activeEmailService: (any EmailServiceProtocol)?
+
+.task {
+    resolveActiveEmailService()
+}
+.onChange(of: conversation.id) { _, _ in
+    resolveActiveEmailService()
+}
+
+internal func resolveActiveEmailService() {
+    do {
+        activeEmailService = try appState.serviceProvider.activeService()
+    } catch {
+        Logger.error("Failed to resolve active service: \(error.localizedDescription)", category: .general)
+        // See "Known issue" below — match this fallback when editing existing views
+        activeEmailService = appState.gmailService
+    }
+}
+
+// ❌ WRONG — computed property (TOCTOU race on account switch)
+private var emailService: any EmailServiceProtocol {
+    (try? appState.serviceProvider.activeService()) ?? appState.gmailService
+}
+```
+
+**Known issue (do not fix in this PR; do not introduce NEW instances):**
+The `appState.gmailService` fallback in the catch block references a concrete provider, which
+contradicts the no-concrete-providers-in-views rule from `.claude/rules/provider-isolation.md`.
+The fallback is documented in `.claude/rules/swiftui-views.md` and is currently the project's
+canonical pattern. A separate cleanup PR should resolve the conflict by either:
+  - (a) propagating the throw to `.task` and showing an error UI when no service resolves, or
+  - (b) introducing a `noActiveService` state in the view's `ViewState<T>`
+
+When editing **existing** views, match the documented pattern (preserves consistency).
+When creating a **new** view, surface this smell to the user before adding the fallback —
+the user may want option (a) or (b) for new code.
 
 ## macOS 15+ (Sequoia) SwiftUI Patterns (from Context7)
 

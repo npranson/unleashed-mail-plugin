@@ -25,16 +25,16 @@ to the other reviewers.
 
 ```bash
 # Find @MainActor usage
-grep -rn "@MainActor" --include='*.swift' Sources/
+grep -rn "@MainActor" --include='*.swift' "Unleashed Mail/Sources/"
 
 # Find classes that should be actors but aren't
-grep -rn "class.*:.*ObservableObject" --include='*.swift' Sources/
+grep -rn "class.*:.*ObservableObject" --include='*.swift' "Unleashed Mail/Sources/"
 
 # Find mutable shared state without actor protection
-grep -rn "var.*=.*\[\|var.*=.*\[:\]" --include='*.swift' Sources/ | grep -v "struct\|actor\|@MainActor"
+grep -rn "var.*=.*\[\|var.*=.*\[:\]" --include='*.swift' "Unleashed Mail/Sources/" | grep -v "struct\|actor\|@MainActor"
 
 # Find nonisolated access to actor properties
-grep -rn "nonisolated" --include='*.swift' Sources/
+grep -rn "nonisolated" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 **Check for:**
@@ -47,13 +47,13 @@ grep -rn "nonisolated" --include='*.swift' Sources/
 
 ```bash
 # Find Task {} without structured concurrency
-grep -rn "Task\s*{" --include='*.swift' Sources/ | grep -v "TaskGroup\|withThrowingTaskGroup\|withTaskGroup"
+grep -rn "Task\s*{" --include='*.swift' "Unleashed Mail/Sources/" | grep -v "TaskGroup\|withThrowingTaskGroup\|withTaskGroup"
 
 # Find detached tasks (almost always wrong)
-grep -rn "Task\.detached" --include='*.swift' Sources/
+grep -rn "Task\.detached" --include='*.swift' "Unleashed Mail/Sources/"
 
 # Find .task {} in SwiftUI without cancellation awareness
-grep -rn "\.task\s*{" --include='*.swift' Sources/
+grep -rn "\.task\s*{" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 **Check for:**
@@ -67,10 +67,10 @@ grep -rn "\.task\s*{" --include='*.swift' Sources/
 
 ```bash
 # Check for database access patterns
-grep -rn "dbQueue\.\|dbPool\." --include='*.swift' Sources/
+grep -rn "dbQueue\.\|dbPool\." --include='*.swift' "Unleashed Mail/Sources/"
 
 # Find raw database access outside read/write blocks
-grep -rn "\.execute\|\.fetch" --include='*.swift' Sources/ | grep -v "\.read\|\.write\|db\."
+grep -rn "\.execute\|\.fetch" --include='*.swift' "Unleashed Mail/Sources/" | grep -v "\.read\|\.write\|db\."
 ```
 
 **Check for:**
@@ -84,7 +84,7 @@ grep -rn "\.execute\|\.fetch" --include='*.swift' Sources/ | grep -v "\.read\|\.
 
 ```bash
 # Check WKWebView calls from non-main threads
-grep -rn "webView\.\|evaluateJavaScript\|WKWebView" --include='*.swift' Sources/
+grep -rn "webView\.\|evaluateJavaScript\|WKWebView" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 **Check for:**
@@ -102,17 +102,17 @@ grep -rn "webView\.\|evaluateJavaScript\|WKWebView" --include='*.swift' Sources/
 
 ```bash
 # Find token-related concurrency
-grep -rn "TokenManager\|validAccessToken\|refreshToken\|acquireToken" --include='*.swift' Sources/
+grep -rn "TokenManager\|validAccessToken\|refreshToken\|acquireToken" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 ### 6. Combine / Observation Lifecycle
 
 ```bash
 # Find Combine subscriptions
-grep -rn "AnyCancellable\|\.sink\|\.assign\|\.store(in:" --include='*.swift' Sources/
+grep -rn "AnyCancellable\|\.sink\|\.assign\|\.store(in:" --include='*.swift' "Unleashed Mail/Sources/"
 
 # Find observation patterns
-grep -rn "ValueObservation\|\.start(in:" --include='*.swift' Sources/
+grep -rn "ValueObservation\|\.start(in:" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 **Check for:**
@@ -121,15 +121,45 @@ grep -rn "ValueObservation\|\.start(in:" --include='*.swift' Sources/
 - [ ] Observation callbacks that update `@Observable` / `@Published` properties dispatch to main
 - [ ] No retain cycles in `.sink` closures (use `[weak self]`)
 
+### 7.4. Sendable Matrix (Foundation vs. Swift stdlib — COREDEV-1578)
+
+The COREDEV-1578 audit established this matrix on macOS 15 SDK / Swift 6.3:
+
+| Type | Sendable on macOS 15+ | `nonisolated(unsafe)` needed? |
+|------|----------------------|-------------------------------|
+| `NSRegularExpression`, `[NSRegularExpression]` | Yes | No (use `nonisolated` plain) |
+| `DateFormatter` | Yes | No |
+| `Regex<Output>` (any `Output`, including `Substring`) | **No** | **Yes** |
+| `RegexBuilder.Reference<Capture>` | **No** | **Yes** |
+| `ISO8601DateFormatter`, `RelativeDateTimeFormatter` | No | Yes |
+| `NSFont`, `NSParagraphStyle` | No (mutable AppKit) | keep on `@MainActor` |
+
+**Common false-positive flags to suppress:**
+
+- `nonisolated(unsafe) static let regex = try! NSRegularExpression(...)` is **wrong** on macOS 15+ — drop `(unsafe)`. Compiler will warn that `unsafe` is unnecessary.
+- `nonisolated static let regex: Regex<Substring> = ...` will **not compile** — Swift stdlib hasn't shipped Sendable conformance. `nonisolated(unsafe)` is the documented escape hatch.
+
+For arrays of heterogeneous `Regex<Output>` types, use closure-based type erasure (`@unchecked Sendable` struct wrapping the regex in a closure). Reference: `.claude/rules/swift-regex-sendable.md`, `docs/architecture/SWIFT_REGEX_SENDABLE_NOTES.md`.
+
+```bash
+# Find candidate sites
+grep -rn "nonisolated(unsafe)" --include='*.swift' "Unleashed Mail/Sources/"
+grep -rn "Regex<\|RegexBuilder\.Reference" --include='*.swift' "Unleashed Mail/Sources/"
+```
+
+**Flag as 🟡 WARNING:**
+- `nonisolated(unsafe)` on a `static let` of a Sendable Foundation type (drop `(unsafe)`)
+- `nonisolated` (without `unsafe`) on a `Regex<Output>` constant (won't compile)
+
 ## Deprecation Audit
 
 ### 7. Non-Preferred Patterns
 
 ```bash
 # Check for deprecated patterns
-grep -rn "DispatchQueue\.main\.async\|DispatchQueue\.global" --include='*.swift' Sources/
-grep -rn "NSLock\|os_unfair_lock\|pthread_mutex" --include='*.swift' Sources/
-grep -rn "Hashable.*func hash(into\|var hashValue" --include='*.swift' Sources/
+grep -rn "DispatchQueue\.main\.async\|DispatchQueue\.global" --include='*.swift' "Unleashed Mail/Sources/"
+grep -rn "NSLock\|os_unfair_lock\|pthread_mutex" --include='*.swift' "Unleashed Mail/Sources/"
+grep -rn "Hashable.*func hash(into\|var hashValue" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 **Flag as 🟡 WARNING:**
@@ -143,7 +173,7 @@ grep -rn "Hashable.*func hash(into\|var hashValue" --include='*.swift' Sources/
 
 ```bash
 # Find @unchecked Sendable usage — each must be justified
-grep -rn "@unchecked Sendable" --include='*.swift' Sources/
+grep -rn "@unchecked Sendable" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 **Check for:**
@@ -160,8 +190,8 @@ grep -rn "@unchecked Sendable" --include='*.swift' Sources/
 
 ```bash
 # Deprecated APIs (app targets macOS 15+)
-grep -rn "NSColor\.\(selectedTextBackgroundColor\)\|NSWorkspace.*launchApplication\|NSAlert()\.beginSheet" --include='*.swift' Sources/
-grep -rn "URLSession\.shared\.dataTask\|completionHandler:" --include='*.swift' Sources/ | head -20
+grep -rn "NSColor\.\(selectedTextBackgroundColor\)\|NSWorkspace.*launchApplication\|NSAlert()\.beginSheet" --include='*.swift' "Unleashed Mail/Sources/"
+grep -rn "URLSession\.shared\.dataTask\|completionHandler:" --include='*.swift' "Unleashed Mail/Sources/" | head -20
 ```
 
 **Flag as 🟡 WARNING:**
@@ -173,18 +203,26 @@ grep -rn "URLSession\.shared\.dataTask\|completionHandler:" --include='*.swift' 
 
 ### 9. Dependency Deprecations
 
-```bash
-# Check Package.resolved for outdated dependencies
-cat Package.resolved 2>/dev/null | grep -A2 "\"version\""
+> ⚠️ This project is an **Xcode project**, not a SwiftPM package. There is no
+> `Package.swift` or `Package.resolved` at the root. Package dependencies are
+> managed inside Xcode (`.xcodeproj`). Inspect via:
 
-# Check GRDB version (need 7.x+ for modern async APIs)
-grep -rn "grdb\|GRDB" Package.swift Package.resolved 2>/dev/null
+```bash
+# Resolved package versions live in the xcodeproj
+plutil -p "Unleashed Mail.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved" 2>/dev/null \
+    | grep -B1 "version" || echo "(swiftpm/Package.resolved not present — open Xcode for resolved versions)"
 ```
 
-**Flag as 🔵 SUGGESTION:**
-- GRDB < 7.0 (missing native async/await support)
-- MSAL < 1.4 (missing macOS improvements)
-- Any SPM dependency more than 2 major versions behind latest
+`concurrency-reviewer` does not have WebFetch / Context7 — it cannot independently
+verify that a pinned version is the "latest" without external lookup. Either
+defer current-version checks to the planner (`modern-standards-planner`, which
+has Context7 + WebSearch + WebFetch) or surface the pinned versions as fact
+without a "should upgrade" recommendation. Do **not** invent version comparisons.
+
+**Surface (don't recommend) when relevant:**
+- GRDB version pinned (project requires 7+)
+- MSAL version pinned
+- Any SPM dependency that hasn't been updated in this PR's diff
 
 ## Output Format
 

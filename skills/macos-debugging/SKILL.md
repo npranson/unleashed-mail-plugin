@@ -4,7 +4,7 @@ description: >
   Systematic debugging methodology for macOS/Swift issues in UnleashedMail.
   Activates when encountering crashes, memory leaks, performance issues,
   Xcode build failures, or unexpected runtime behavior.
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent
 ---
 
 # Systematic macOS Debugging — UnleashedMail
@@ -64,7 +64,7 @@ xcrun xctrace record --template 'Leaks' --launch -- /path/to/UnleashedMail.app
 ```bash
 # Clean build and capture full output
 xcodebuild clean build \
-  -scheme UnleashedMail \
+  -scheme "Unleashed Mail" \
   -destination 'platform=macOS' \
   2>&1 | tee /tmp/build-output.log
 
@@ -85,7 +85,7 @@ atos -arch arm64 -o /path/to/UnleashedMail.app.dSYM/Contents/Resources/DWARF/Unl
 ```
 
 **Common crash patterns:**
-- Force unwrap on optional (`!`) — search for these: `grep -rn '!' --include='*.swift' Sources/`
+- Force unwrap on optional (`!`) — search for these: `grep -rn '!' --include='*.swift' "Unleashed Mail/Sources/"`
 - Main thread assertion from background async context
 - GRDB `DatabaseError` from schema mismatch after migration failure
 

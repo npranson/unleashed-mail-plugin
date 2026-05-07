@@ -11,10 +11,10 @@ You are working on **UnleashedMail**, a native macOS email client.
 - **Platform**: macOS 15.0+ (Sequoia), ARM64 only
 - **Auth**: Google OAuth 2.0 (manual), MSAL for Microsoft (automatic token cache), Keychain storage
 - **APIs**: Gmail REST API with Pub/Sub push; Microsoft Graph Mail API with webhook subscriptions / delta queries
-- **AI**: Multi-provider AI agent (GARI) with `HTTPBasedAIProvider`, `ToolRegistry`, `PromptRegistry`, `AISafetyPipeline`
+- **AI**: Multi-provider AI agent (GARI) with `HTTPBasedAIProvider` (cloud) or `BaseAIProvider` (Apple Intelligence), `ToolRegistry`, `PromptRegistry`. `AISafetyPipeline` is **PLANNED, not yet shipped** — current safety is inline (`PIIRedactor`, `LLMInputSanitizer`).
 - **CI**: GitHub Actions (Xcode 16.3+, Swift 6.1 toolchain), Xcode Cloud
 - **Lint**: SwiftLint (enforced — `.swiftlint.yml`)
-- **Package Manager**: Swift Package Manager
+- **Project type**: Xcode project (`.xcodeproj`), package dependencies managed inside Xcode — **not** a SwiftPM package. Use `xcodebuild` (not `swift build`/`swift test`).
 
 ## Source Layout
 
@@ -62,6 +62,15 @@ Unleashed Mail/Sources/
 
 Create `docs/planning/FEATURE_NAME_PLAN.md` for any feature, refactoring, or multi-step development.
 
+### Plan Review Gate (Mandatory before implementation)
+
+Every plan or debug session must be reviewed by **both** Gemini and Codex CLI before implementation begins:
+
+- `/gemini-review` — uses `gemini-3.1-pro-preview`
+- `/codex-review` — uses `codex exec -s read-only`
+
+Both must produce APPROVE / APPROVE_WITH_NOTES before code edits start. Iterate (typically 2–6 rounds) until both converge. Diagnostic agents (`xcode-build-fixer`, `graph-api-debugger`) propose fixes for the user to apply — they don't gate auto-fixes since the user is in the loop.
+
 ### Context7 Usage (Mandatory)
 
 When performing code generation, setup/installation steps, configuration instructions, or library/API documentation lookup — you **must** use Context7 MCP tools. Do not rely on prior knowledge.
@@ -91,12 +100,49 @@ When performing code generation, setup/installation steps, configuration instruc
 - Always sanitize HTML before WKWebView; preserve CID image refs first
 - Never remove or weaken security measures (Keychain, HTML sanitization, encryption)
 
+## Path-Scoped Project Rules
+
+The project loads `.claude/rules/*.md` automatically based on file path. When editing project files, the matching rule auto-loads — read it. Eight rules currently:
+
+> Rule paths in `.claude/rules/*.md` use the project-rooted form `"Unleashed Mail/Sources/..."`.
+> Globs match relative to the project root.
+
+| Rule | When loaded (relative to project root) |
+|------|-------------|
+| `ai-architecture.md` | `Unleashed Mail/Sources/Services/AI/**`, `AIAgent*`, `ServiceContainer+Wiring*` |
+| `api-endpoints.md` | `APIEndpoints*`, `*Service*`, `RateLimiter*`, `RetryPolicy*` |
+| `code-style.md` | `**/*.swift` (always loaded) |
+| `database.md` | `Unleashed Mail/Sources/Services/Database/**`, `*Migration*`, `*Repository*` |
+| `provider-isolation.md` | `Gmail*`, `MicrosoftGraph*`, `AccountScoped*`, sync workers |
+| `swift-regex-sendable.md` | `*Regex*`, `*Pattern*`, `PIIRedactor*` |
+| `swiftui-views.md` | `Unleashed Mail/Sources/Views/**`, `Unleashed Mail/Sources/ViewModels/**`, `Unleashed Mail/Sources/Components/**` |
+| `webview-editor.md` | `*WebView*`, `*EmailWeb*`, `HTML*` |
+
+**Rule auto-load matches by filename, not content.** When extracting `+Feature.swift` files, preserve the parent type's name so the right rule continues to load.
+
+## Service Resolution (Multi-Account)
+
+- **Services obtain providers via `AccountScopedServiceProvider.activeService()`** — never reference `gmailService` or `microsoftGraphService` concretes in new service code
+- Use `serviceProvider.gmailServiceGuarded()` for Gmail-only operations (throws if account is non-Google)
+- Use `serviceProvider.validateSupported(.operation)` as a guard at the top of provider-specific methods
+- **Views** resolve services via `@State` + `.task` + `.onChange` — **never** a computed property (TOCTOU race during account switches)
+
 ## Dual Implementations (Must Update Both)
 
 Changes must be applied to both variants:
 - **AI Agent (GARI):** Docked panel (`AskAIWindowContentView`) + Floating window (`AskAIView`)
-- **Compose:** Native editor + WebKit editor
-- **Email Detail:** `SimpleEmailWebView` + `EmailWebView`
+- **Compose:** `NativeRichTextEditor` (macOS 26+) + `HTMLWebViewEditor` (macOS ≤25)
+- **Email Detail:** `SimpleEmailWebView` (production) + `EmailWebView`
+
+## Curator Design System
+
+All views use Curator tokens, not hardcoded primitives. Reference: `docs/BRAND_STANDARDS.md`.
+
+- Never hardcode fonts, colors, spacing, radii — use `CuratorTheme.*`, `Color.curator*`
+- Sheets: `.curatorSheetBackground()` — never raw `.background()`
+- Dividers: `CuratorDivider()` — never SwiftUI `Divider()`
+- Selection rows: `CuratorRadioOption` — never hand-rolled selection cells
+- Use `.foregroundStyle()` — `.foregroundColor()` is deprecated
 
 ## Database Migrations
 
@@ -115,27 +161,33 @@ Categorize as **CRITICAL** (runs at startup) or **DEFERRABLE** (background after
 
 ## AI Architecture Standards
 
-- **No manual URLSession in AI Providers** — inherit `HTTPBasedAIProvider`, override `prepareHeaders()`, `buildRequestBody()`, `parseResponse()`, `parseStreamChunk()`
+- **HTTP providers (cloud LLMs)** inherit `HTTPBasedAIProvider`, override `prepareHeaders()`, `buildRequestBody()`, `parseResponse()`, `parseStreamChunk()` — no manual URLSession
+- **On-device providers (Apple Intelligence)** inherit `BaseAIProvider` directly — they have no HTTP semantics. Project-sanctioned exception.
 - **Single dispatch path** — `ToolRegistry` is the ONLY mechanism for tool execution
 - **No inline prompts** — all prompts in `PromptRegistry`, versioned for A/B testing
-- **Unified safety pipeline** — all validation through `AISafetyPipeline`
-- **`AIService` is deprecated** — route new AI functionality through `AIAgentPipeline`
-
-## Service Initialization Order
-
-```
-DatabaseService → GmailService → AuthService → GmailService.setAuthService()
-→ SearchService → ContactsService → AIService → PushNotificationService
-```
+- **Safety pipeline (transitional)** — `AISafetyPipeline` is **PLANNED, not yet shipped**. Until it ships, safety checks are inline (`PIIRedactor`, `LLMInputSanitizer`). New safety checks co-locate with existing inline validators and are documented for future migration. See `.claude/rules/ai-architecture.md` and COREDEV-833 audit finding SEC-4.
+- **`AIService` is deprecated** — route new AI functionality through `AIAgentPipeline`. Do not add new methods to `AIService.swift`.
 
 ## Testing
 
-- Run tests before commits; new features require unit tests; bug fixes require regression tests
+- Run tests before commits with `xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS'`
+- New features require unit tests; bug fixes require regression tests
 - Use mocks from `MockServices.swift`
 - Test naming: `test_action_condition_expectedResult()`
-- `KeychainManager` auto-uses in-memory store under XCTest — call `resetInMemoryStore()` in `tearDown()`
+- `KeychainManager` auto-uses in-memory store under XCTest (`TestEnvironment.isRunningTests`) — call `KeychainManager.resetInMemoryStore()` in `tearDown()`. Do not call `SecItem*` directly.
+- Test databases: `DatabaseQueue` only (no `DatabasePool`), `kdf_iter=4000` for speed, `waitForInitialized()` calls `initializeDatabase()` directly to avoid MainActor starvation
 
 ## Repository Conventions
 
-- Branch naming: `feature/desc`, `fix/desc`, `claude/desc-sessionId`
-- Commit messages: conventional commits (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`)
+- **Branch naming**: `1.0X/feature-name` off the matching version branch (`1.0X.0000`); hotfixes off the version branch and merged to BOTH the version branch AND `main`
+- **Versioning**: `MAJOR.MINORRELEASE.YYMMBB` per `docs/VERSIONING.md`. `MARKETING_VERSION` (e.g., `1.02`) is manual; `CURRENT_PROJECT_VERSION` (e.g., `1.02.260501`) has its `BB` byte **auto-bumped** by `scripts/bump-build-number.sh` (Scheme Pre-Action on Archive) and auto-committed by `scripts/post-archive-commit-bump.sh` (Post-Action). Current: `1.02.260501` (Beta).
+- **Trunk**: `main` is the integration trunk
+- **Commit messages**: conventional commits (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`); include Jira ticket where applicable: `feat(COREDEV-1234): ...`
+- **Build**: `xcodebuild -scheme "Unleashed Mail"` — quote the scheme name (it contains a space)
+- **Source paths**: `Unleashed Mail/Sources/...` and `Unleashed MailTests/...` (also contain spaces; quote in shell)
+
+## Cross-Agent Workflow Contracts
+
+See [`AGENT_CONTRACTS.md`](AGENT_CONTRACTS.md) — defines the boundaries, handoffs, and shared conventions between agents (release/versioning, plan→implement, data→logic→ui handoff, AI pipeline ownership, code review, CI pinning, mandatory project gates, MCP tool prefixes).
+
+When two agents disagree about a boundary, `AGENT_CONTRACTS.md` is the source of truth.

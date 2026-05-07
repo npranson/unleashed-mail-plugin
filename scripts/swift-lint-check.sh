@@ -25,9 +25,14 @@ fi
 if command -v swiftlint &> /dev/null; then
     LINT_OUTPUT=$(swiftlint lint --path "$FILE_PATH" --quiet --force-exclude 2>&1)
 
-    # Count errors vs warnings
-    ERROR_COUNT=$(echo "$LINT_OUTPUT" | grep -c ": error:" 2>/dev/null || echo "0")
-    WARNING_COUNT=$(echo "$LINT_OUTPUT" | grep -c ": warning:" 2>/dev/null || echo "0")
+    # Count errors vs warnings.
+    # `grep -c PATTERN || echo 0` produces "0\n0" on no-match (the failing
+    # grep AND the echo fallback both fire). Use `|| true` and rely on grep
+    # printing a single line per file, then guard against empty with :-0.
+    ERROR_COUNT=$(printf '%s' "$LINT_OUTPUT" | grep -c ": error:" 2>/dev/null || true)
+    WARNING_COUNT=$(printf '%s' "$LINT_OUTPUT" | grep -c ": warning:" 2>/dev/null || true)
+    ERROR_COUNT=${ERROR_COUNT:-0}
+    WARNING_COUNT=${WARNING_COUNT:-0}
 
     if [ "$ERROR_COUNT" -gt 0 ]; then
         echo "❌ SwiftLint errors in $FILE_PATH — BLOCKED"
@@ -69,11 +74,27 @@ if [ -n "$TOKEN_LOG" ]; then
 fi
 
 # --- 6. Test file existence check (WARNING only, does not block) ---
-if [[ "$FILE_PATH" == *Sources/*.swift ]] && [[ "$FILE_PATH" != *Tests/* ]]; then
-    TEST_PATH=$(echo "$FILE_PATH" | sed 's|Sources/|Tests/|' | sed 's|\.swift$|Tests.swift|')
-    if [ ! -f "$TEST_PATH" ]; then
-        echo "⚠️  No test file found for $(basename "$FILE_PATH") (expected: $TEST_PATH)"
-    fi
-fi
+# UnleashedMail layout: production code lives under "Unleashed Mail/Sources/",
+# tests under "Unleashed MailTests/" (note the space). Swift package layout would be
+# "Sources/" -> "Tests/"; we accept both forms so the hook is portable to other repos.
+case "$FILE_PATH" in
+    *"Unleashed Mail/Sources/"*.swift)
+        TEST_PATH=$(echo "$FILE_PATH" | sed 's|Unleashed Mail/Sources/|Unleashed MailTests/|' | sed 's|\.swift$|Tests.swift|')
+        if [ ! -f "$TEST_PATH" ]; then
+            echo "⚠️  No test file found for $(basename "$FILE_PATH") (expected: $TEST_PATH)"
+        fi
+        ;;
+    *Sources/*.swift)
+        case "$FILE_PATH" in
+            *Tests/*) ;;  # already a test file
+            *)
+                TEST_PATH=$(echo "$FILE_PATH" | sed 's|Sources/|Tests/|' | sed 's|\.swift$|Tests.swift|')
+                if [ ! -f "$TEST_PATH" ]; then
+                    echo "⚠️  No test file found for $(basename "$FILE_PATH") (expected: $TEST_PATH)"
+                fi
+                ;;
+        esac
+        ;;
+esac
 
 exit $EXIT_CODE

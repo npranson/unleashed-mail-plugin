@@ -138,7 +138,7 @@ Selection state lives in a shared `@Observable NavigationState` object injected 
 ## File Organization
 
 ```
-Sources/UnleashedMail/
+Unleashed Mail/Sources/
 ├── Views/
 │   ├── Compose/
 │   ├── Inbox/

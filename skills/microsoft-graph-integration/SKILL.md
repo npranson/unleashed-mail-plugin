@@ -24,12 +24,19 @@ UnleashedMail uses the **public client (desktop)** flow via MSAL for macOS.
 
 ### Dependency
 
-Add the MSAL package via SPM:
+UnleashedMail is an Xcode project (not a SwiftPM package), so MSAL is added via Xcode's
+package management UI, not a `Package.swift`:
 
-```swift
-// Package.swift
-.package(url: "https://github.com/AzureAD/microsoft-authentication-library-for-objc", from: "1.4.0")
-```
+1. **File → Add Package Dependencies…** in Xcode
+2. URL: `https://github.com/AzureAD/microsoft-authentication-library-for-objc`
+3. Version rule: typically **Exact** or **Up to Next Minor** — MSAL has frequent breaking
+   changes, so the project pins conservatively (see `skills/spm-management`)
+4. Add to the `Unleashed Mail` target
+
+The resolved version lands in
+`Unleashed Mail.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+Adding/updating MSAL crosses the project's "Ask before" boundary (per CLAUDE.md) — confirm
+with the user before changing the version pin.
 
 ### App Registration (Azure AD)
 

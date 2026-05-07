@@ -23,8 +23,8 @@ concerns — leave correctness, performance, and style to the other reviewers.
 
 ```bash
 # Scan for hardcoded secrets
-grep -rn "client_id\s*=\s*\"\|client_secret\s*=\s*\"\|api_key\s*=\s*\"\|password\s*=\s*\"" --include='*.swift' Sources/
-grep -rn "Bearer [A-Za-z0-9_-]" --include='*.swift' Sources/
+grep -rn "client_id\s*=\s*\"\|client_secret\s*=\s*\"\|api_key\s*=\s*\"\|password\s*=\s*\"" --include='*.swift' "Unleashed Mail/Sources/"
+grep -rn "Bearer [A-Za-z0-9_-]" --include='*.swift' "Unleashed Mail/Sources/"
 
 # Check for secrets in CI/CD
 grep -rn "secret\|token\|key\|password" .github/workflows/*.yml 2>/dev/null
@@ -50,7 +50,7 @@ cat .gitignore | grep -i "key\|secret\|token\|env\|credential"
 
 ```bash
 # Check for token logging
-grep -rn "print.*token\|NSLog.*token\|os_log.*token\|logger.*token" --include='*.swift' Sources/
+grep -rn "print.*token\|NSLog.*token\|os_log.*token\|logger.*token" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 ### 3. OAuth & Authentication Flows
@@ -73,31 +73,41 @@ grep -rn "print.*token\|NSLog.*token\|os_log.*token\|logger.*token" --include='*
 
 ```bash
 # Check for unsafe JS interpolation
-grep -rn "evaluateJavaScript.*\\\\(" --include='*.swift' Sources/
+grep -rn "evaluateJavaScript.*\\\\(" --include='*.swift' "Unleashed Mail/Sources/"
 # Look for CSP configuration
-grep -rn "Content-Security-Policy\|CSP" --include='*.swift' --include='*.html' Sources/
+grep -rn "Content-Security-Policy\|CSP" --include='*.swift' --include='*.html' "Unleashed Mail/Sources/"
 ```
 
 ### 5. Network & Transport Security
 
 - [ ] No ATS (App Transport Security) exceptions in Info.plist without justification
-- [ ] Certificate pinning is considered for OAuth endpoints
 - [ ] No HTTP (non-TLS) connections to any backend
 - [ ] URLSession configurations don't disable certificate validation
+- [ ] System TLS validation is intact — relies on Apple's trust store
+
+> ⚠️ **Do NOT recommend certificate pinning for Google or Microsoft OAuth/Graph endpoints.**
+> Both providers rotate intermediate certificates frequently; pinning will silently break the
+> app. Pinning is only appropriate for first-party endpoints under direct project control,
+> and only with an automated pin-rotation pipeline.
 
 ```bash
 # Check for ATS exceptions
-grep -A5 "NSAppTransportSecurity" Info.plist 2>/dev/null || echo "No ATS exceptions found (good)"
+grep -A5 "NSAppTransportSecurity" "Unleashed Mail/Info.plist" 2>/dev/null || echo "No ATS exceptions found (good)"
 # Check for certificate validation disabling
-grep -rn "serverTrust\|allowsInvalid\|disable.*ssl\|URLSessionDelegate" --include='*.swift' Sources/
+grep -rn "serverTrust\|allowsInvalid\|disable.*ssl\|URLSessionDelegate" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 ### 6. CI/CD Pipeline Security
 
+Per `AGENT_CONTRACTS.md §6`, GitHub Actions must pin to commit SHAs, not version tags.
+`ci-engineer` and `release-manager` must align with this rule (single stance across the plugin).
+
 ```bash
-# Check GitHub Actions for supply chain risks
-grep -rn "uses:" .github/workflows/*.yml 2>/dev/null | grep -v "@v\|@main\|@sha"
-# Should pin to specific SHAs, not tags
+# Find tag-pinned actions (the violation we want to flag) — match @v* or @main
+# but NOT @<40-char SHA>. The previous grep accidentally inverted this and silently
+# skipped every violation.
+grep -rn "uses:" .github/workflows/*.yml 2>/dev/null \
+    | grep -E "@v[0-9]|@main|@master" | grep -vE "@[a-f0-9]{40}"
 
 # Check for artifact exposure
 grep -rn "upload-artifact\|actions/cache" .github/workflows/*.yml 2>/dev/null
@@ -107,7 +117,7 @@ grep -rn "CODE_SIGN_IDENTITY\|DEVELOPMENT_TEAM" .github/workflows/*.yml 2>/dev/n
 ```
 
 **Flag as 🟡 WARNING:**
-- GitHub Actions pinned to tags instead of commit SHAs
+- GitHub Actions pinned to tags instead of commit SHAs (use `@<40-char-sha>` with `# v4.1.0` comment)
 - Cached artifacts containing build secrets or tokens
 - CI workflows with overly broad permissions
 
@@ -130,26 +140,42 @@ grep -rn "CODE_SIGN_IDENTITY\|DEVELOPMENT_TEAM" .github/workflows/*.yml 2>/dev/n
 
 ```bash
 # Check for unencrypted database usage
-grep -rn "DatabaseQueue\|DatabasePool" --include='*.swift' Sources/ | grep -v "cipher\|encrypt\|SQLCipher\|passphrase"
+grep -rn "DatabaseQueue\|DatabasePool" --include='*.swift' "Unleashed Mail/Sources/" \
+    | grep -v "cipher\|encrypt\|SQLCipher\|passphrase"
 # Check encryption key handling
-grep -rn "cipher\|passphrase\|databaseKey\|encryptionKey" --include='*.swift' Sources/
+grep -rn "cipher\|passphrase\|databaseKey\|encryptionKey" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 ### 9. HTML Sanitization (WKWebView)
 
-- [ ] All external HTML (email bodies) is sanitized before loading in WKWebView
-- [ ] CID image references (`cid:`) are preserved during sanitization
-- [ ] `<script>` tags are stripped from email HTML
-- [ ] `javascript:` URLs are stripped from `href` attributes
-- [ ] `on*` event handlers (onclick, onerror, etc.) are stripped
-- [ ] External image loading is controlled (privacy — tracking pixels)
-- [ ] `<form>` elements are stripped or disabled in email rendering
+The project uses a **two-layer pipeline** (per `.claude/rules/webview-editor.md`) — both layers
+are security-relevant:
+
+- **Layer 1 — `HTMLSanitizer`** (DOM-level): strips scripts, JS event handlers, `javascript:`
+  URLs, `<form>` elements
+- **Layer 2 — `HTMLRenderPipeline`** (preserved-`<style>` reinjection): CSS-level policy enforced
+  via `CSSURLPolicy`, in-place asset swap, neutralized external image URLs
+
+Both layers must apply before content reaches `WKWebView.loadHTMLString`. Removing or weakening
+either layer is a 🔴 BLOCKER.
+
+- [ ] All external HTML (email bodies) flows through `HTMLProcessor` → `HTMLSanitizer` → `HTMLRenderPipeline`
+- [ ] CID image references (`cid:`) preserved before sanitization (`HTMLProcessor.extractCIDReferences`)
+- [ ] `<script>` tags stripped (Layer 1)
+- [ ] `javascript:` URLs stripped from `href` attributes (Layer 1)
+- [ ] `on*` event handlers stripped (Layer 1)
+- [ ] External image loading neutralized via `neutralizeExternalImageURLs` + `applyInPlaceAssetSwap` (Layer 2 — these are a matched pair; new image shapes like CSS backgrounds, VML must be handled by both)
+- [ ] `<form>` elements stripped or disabled (Layer 1)
+- [ ] Page JavaScript disabled at WebView level (`allowsContentJavaScript = false`); only Swift-side `evaluateJavaScript` reaches the DOM
+- [ ] Image budget caps not lowered without verifying hero images on Lenovo / Nintendo / Braze templates (per `.claude/rules/webview-editor.md` — 4 caps must stay in sync)
 
 ```bash
 # Check sanitization implementation
-grep -rn "sanitize\|HTMLSanitizer\|cleanHTML\|stripTags" --include='*.swift' Sources/
+grep -rn "HTMLSanitizer\|HTMLRenderPipeline\|HTMLProcessor\|CSSURLPolicy" --include='*.swift' "Unleashed Mail/Sources/"
 # Check for unsafe HTML loading
-grep -rn "loadHTMLString\|loadFileURL" --include='*.swift' Sources/
+grep -rn "loadHTMLString\|loadFileURL" --include='*.swift' "Unleashed Mail/Sources/"
+# Check that allowsContentJavaScript is OFF
+grep -rn "allowsContentJavaScript" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 ### 10. Entitlements Audit

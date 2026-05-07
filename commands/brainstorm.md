@@ -1,6 +1,6 @@
 ---
 description: Brainstorm and design a feature — research modern approaches, then pressure-test with enterprise and SMB stakeholder personas before planning
-allowed-tools: Read, Grep, Glob, Task, WebFetch, WebSearch
+allowed-tools: Read, Grep, Glob, Agent, WebFetch, WebSearch
 disable-model-invocation: true
 ---
 

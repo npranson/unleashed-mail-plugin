@@ -38,34 +38,31 @@ Before writing logic code, check these skills:
 - `microsoft-graph-integration` — Graph API patterns
 - `provider-parity` — Dual-provider requirements
 
-Key rules from project CLAUDE.md:
+Key rules from project CLAUDE.md and `.claude/rules/`:
 - ViewModels are `@Observable`, marked `@MainActor`, explicit `internal`/`private` access
 - All dependencies injected via init
 - Error state is a published property, not thrown to views
 - Both providers implement `MailProviderProtocol` — no provider-specific types leak out
+- **Services obtain providers via `AccountScopedServiceProvider.activeService()`** (per `.claude/rules/provider-isolation.md`). **Never** reference `gmailService` or `microsoftGraphService` concretes in new service code. Use `serviceProvider.gmailServiceGuarded()` for Gmail-only operations and `serviceProvider.validateSupported(.operation)` as a guard at the top of provider-specific methods. HIPAA/GDPR-relevant.
 - Use actors for shared mutable state (token managers, sync coordinators)
 - `do-catch` with `Logger` — never `try?` silently swallowing
 - **No PII in logs** — use `PIIRedactor` for email addresses, subjects, content
-- **All URLs in `APIEndpoints.swift`** — never hardcode
-- **Handle 401 with token refresh** — then retry once
-- **Batch requests** — Gmail quota is 250 units/second
+- **All URLs in `APIEndpoints.swift`** — never hardcode (per `.claude/rules/api-endpoints.md`)
+- **Handle 401 with token refresh** — then retry **once** only
+- **Batch requests** — Gmail quota is 250 units/second; use `GmailService+BatchOperations.swift` helpers instead of fan-out loops
+- **Concurrency cap** — respect `APIRequestCoordinator.shared.maxConcurrentRequests = 4`. TaskGroup fan-outs MUST NOT exceed this; the coordinator queues excess work but uncoordinated fan-out causes rate-limit cascades
+- **Database queries scope by `account_email`** (snake_case in SQL, `accountEmail` in Swift Record types) — every query must filter
 - **First emails within 3 seconds** — cache-first, then API
 - **Never block main thread** — all I/O via async/await
 - Functions ≤40 lines (warning), ≤50 lines (error); files >600 → split with extensions
 - `@Sendable` on data crossing actor boundaries
 
 ### AI Architecture (Non-Negotiable)
-- **No manual URLSession in AI Providers** — inherit `HTTPBasedAIProvider`
+- **HTTP providers (cloud LLMs)** inherit `HTTPBasedAIProvider`; **on-device providers (Apple Intelligence)** inherit `BaseAIProvider` (project-sanctioned exception)
 - **Tool execution** → `ToolRegistry` only (not legacy switch blocks in `ExecutionService`)
 - **Prompts** → `PromptRegistry` only (no inline prompt strings)
-- **Validation** → `AISafetyPipeline` only (no direct validator calls)
+- **Safety (transitional)** → `AISafetyPipeline` is **PLANNED, not yet shipped**. Until it ships, safety is inline (`PIIRedactor`, `LLMInputSanitizer`). New safety checks co-locate with existing inline validators. See `.claude/rules/ai-architecture.md`.
 - **`AIService` is deprecated** — route new AI functionality through `AIAgentPipeline`
-
-### Service Initialization Order
-```
-DatabaseService → GmailService → AuthService → GmailService.setAuthService()
-→ SearchService → ContactsService → AIService → PushNotificationService
-```
 
 ## How You Work
 
@@ -140,16 +137,24 @@ final class DraftsViewModel {
 
     private let draftService: DraftServiceProtocol
     private let dbQueue: DatabaseQueue
-    init(draftService: DraftServiceProtocol, dbQueue: DatabaseQueue) {
+    private let accountEmail: String  // injected — required for every query (security invariant)
+
+    init(draftService: DraftServiceProtocol, dbQueue: DatabaseQueue, accountEmail: String) {
         self.draftService = draftService
         self.dbQueue = dbQueue
+        self.accountEmail = accountEmail
     }
 
     // MARK: - Lifecycle
 
     func startObserving() async {
+        let scopedAccount = accountEmail  // capture for closure (Sendable)
         let observation = ValueObservation.tracking { db in
-            try MailDraft.order(Column("updatedAt").desc).fetchAll(db)
+            // EVERY query MUST filter by account_email — cross-account leaks are HIPAA/GDPR-relevant
+            try MailDraft
+                .filter(Column("account_email") == scopedAccount)
+                .order(Column("updated_at").desc)
+                .fetchAll(db)
         }
         do {
             for try await drafts in observation.values(in: dbQueue) {
@@ -164,7 +169,12 @@ final class DraftsViewModel {
     // MARK: - Actions
 
     func saveDraft(to: [String], subject: String, body: String) async {
-        let draft = MailDraft(toRecipients: to, subject: subject, bodyHTML: body)
+        let draft = MailDraft(
+            accountEmail: accountEmail,  // tag every record with the owning account
+            toRecipients: to,
+            subject: subject,
+            bodyHTML: body
+        )
         do {
             let saved = try await draftService.saveDraft(draft)
             try await dbQueue.write { db in try saved.save(db) }
@@ -174,10 +184,16 @@ final class DraftsViewModel {
     }
 
     func deleteDraft(_ id: String) async {
-        // Optimistic delete — remove from local DB first
+        let scopedAccount = accountEmail
+        // Optimistic delete — remove from local DB first, scoped to account
         do {
             try await dbQueue.write { db in
-                _ = try MailDraft.deleteOne(db, id: id)
+                // Filter by account_email even on delete-by-id — defense in depth against
+                // ID collision across accounts (Gmail and Graph IDs share namespace)
+                _ = try MailDraft
+                    .filter(Column("account_email") == scopedAccount)
+                    .filter(Column("id") == id)
+                    .deleteAll(db)
             }
             try await draftService.deleteDraft(id: id)
         } catch {
@@ -188,10 +204,14 @@ final class DraftsViewModel {
     }
 
     func sendDraft(_ id: String) async {
+        let scopedAccount = accountEmail
         do {
             let sent = try await draftService.sendDraft(id: id)
             try await dbQueue.write { db in
-                _ = try MailDraft.deleteOne(db, id: id)
+                _ = try MailDraft
+                    .filter(Column("account_email") == scopedAccount)
+                    .filter(Column("id") == id)
+                    .deleteAll(db)
                 try sent.save(db)
             }
         } catch {
@@ -264,10 +284,12 @@ actor SyncCoordinator: SyncServiceProtocol {
 
 ### 6. Performance Patterns
 
-**Batched API fetches:**
+**Batched API fetches** — respect `APIRequestCoordinator.maxConcurrentRequests = 4`:
+
 ```swift
+// CORRECT — fan-out capped at the coordinator's limit (4), not arbitrarily 10
 func fetchMessageDetails(ids: [String]) async throws -> [MailMessage] {
-    let batchSize = 10
+    let batchSize = 4  // matches APIRequestCoordinator.shared.maxConcurrentRequests
     var results: [MailMessage] = []
     for batch in ids.chunked(into: batchSize) {
         let batchResults = try await withThrowingTaskGroup(of: MailMessage.self) { group in
@@ -281,6 +303,10 @@ func fetchMessageDetails(ids: [String]) async throws -> [MailMessage] {
     return results
 }
 ```
+
+> ⚠️ Don't pick fan-out sizes from intuition. Project rule (`.claude/rules/api-endpoints.md`)
+> caps concurrent requests at 4 to avoid rate-limit cascades. Tests assert this value;
+> changing one without the other will break `APIRequestCoordinatorTests`.
 
 **Prefetching for list scrolling:**
 ```swift

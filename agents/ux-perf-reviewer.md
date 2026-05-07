@@ -28,11 +28,11 @@ for UI rendering at 60fps (16.6ms per frame).
 
 ```bash
 # Find synchronous work that might block main
-grep -rn "Thread.sleep\|usleep\|sleep(" --include='*.swift' Sources/
-grep -rn "\.wait()\|semaphore\|DispatchSemaphore" --include='*.swift' Sources/
+grep -rn "Thread.sleep\|usleep\|sleep(" --include='*.swift' "Unleashed Mail/Sources/"
+grep -rn "\.wait()\|semaphore\|DispatchSemaphore" --include='*.swift' "Unleashed Mail/Sources/"
 
 # Find potentially slow operations in views/viewmodels
-grep -rn "try.*await" --include='*.swift' Sources/Views/
+grep -rn "try.*await" --include='*.swift' "Unleashed Mail/Sources/Views/"
 ```
 
 **Check for:**
@@ -46,13 +46,13 @@ grep -rn "try.*await" --include='*.swift' Sources/Views/
 
 ```bash
 # Find overly broad observation
-grep -rn "@Observable\|@ObservedObject\|@StateObject" --include='*.swift' Sources/Views/
+grep -rn "@Observable\|@ObservedObject\|@StateObject" --include='*.swift' "Unleashed Mail/Sources/Views/"
 
 # Find views that might cause excessive redraws
-grep -rn "\.onChange\|\.onReceive\|\.task" --include='*.swift' Sources/Views/ | wc -l
+grep -rn "\.onChange\|\.onReceive\|\.task" --include='*.swift' "Unleashed Mail/Sources/Views/" | wc -l
 
 # Find expensive body computations
-grep -B5 "var body: some View" --include='*.swift' Sources/Views/ | grep "\.filter\|\.map\|\.sorted\|\.reduce\|DateFormatter\|NumberFormatter"
+grep -B5 "var body: some View" --include='*.swift' "Unleashed Mail/Sources/Views/" | grep "\.filter\|\.map\|\.sorted\|\.reduce\|DateFormatter\|NumberFormatter"
 ```
 
 **Check for:**
@@ -68,13 +68,13 @@ grep -B5 "var body: some View" --include='*.swift' Sources/Views/ | grep "\.filt
 
 ```bash
 # Find queries without explicit indexes
-grep -rn "\.filter\|\.order\|WHERE\|ORDER BY" --include='*.swift' Sources/
+grep -rn "\.filter\|\.order\|WHERE\|ORDER BY" --include='*.swift' "Unleashed Mail/Sources/"
 
 # Find potential N+1 patterns
-grep -B5 -A5 "for.*in.*\{" --include='*.swift' Sources/ | grep -A3 "fetchOne\|fetchAll\|dbQueue"
+grep -B5 -A5 "for.*in.*\{" --include='*.swift' "Unleashed Mail/Sources/" | grep -A3 "fetchOne\|fetchAll\|dbQueue"
 
 # Check migration files for index creation
-grep -rn "\.indexed\|createIndex\|CREATE INDEX" --include='*.swift' Sources/
+grep -rn "\.indexed\|createIndex\|CREATE INDEX" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 **Check for:**
@@ -85,19 +85,40 @@ grep -rn "\.indexed\|createIndex\|CREATE INDEX" --include='*.swift' Sources/
 - [ ] `ValueObservation` uses `.removeDuplicates()` for write-heavy tables
 - [ ] Database migrations don't rebuild entire tables if adding a nullable column suffices
 
+### 3.5. Image Budget Tiers (`SharedImageFetcher+Budget.swift`)
+
+The `.display` configuration uses **four constants in tiered sync** (per `.claude/rules/webview-editor.md`). All four must move together if any change.
+
+| Constant | Value | Role |
+|----------|-------|------|
+| `defaultImageSize` | 2 MB | Legacy per-image floor for `Configuration.display` backwards compatibility |
+| `perImageMaxWhenBudgetAllows` | 5 MB | Primary per-image cap when ≥5 MB headroom remains |
+| `absoluteMaxImageSize` | 8 MB | Hard per-image ceiling — no single image exceeds this |
+| `perEmailTotalBudget` | 10 MB | Per-email cumulative cap |
+
+The tracker returns `min(perImageMaxWhenBudgetAllows, remainingBudget, absoluteMaxImageSize)`. The `record()` guard in `SharedImageFetcher+Fetching.swift` is the hard admission gate; `ImageBudgetTracker` is advisory.
+
+**🔴 BLOCKER:** Any PR that lowers a cap without verifying hero images on Lenovo / Nintendo / Braze templates still render. The f4c24ec9 raise from 2 MB → 5 MB fixed broken hero images; reverting that breaks first-paint UX.
+
+**🔴 BLOCKER:** Removing the `record()` guard — admits over-budget images under concurrent fetches.
+
+`AssetCache.maxItemSize` references `SharedImageFetcher.ImageBudget.absoluteMaxImageSize` directly. Keep the reference as a pointer, not a hardcoded copy.
+
+`.quote` Configuration stays at 2 MB per-image / 1 MB total (bytes are baked into HTML before send; no post-paint retry).
+
 ### 4. Network & API Efficiency
 
 ```bash
 # Find non-batched API calls
-grep -rn "fetchMessage\|getMessage" --include='*.swift' Sources/ | grep -v "batch\|Batch\|TaskGroup\|taskGroup"
+grep -rn "fetchMessage\|getMessage" --include='*.swift' "Unleashed Mail/Sources/" | grep -v "batch\|Batch\|TaskGroup\|taskGroup"
 
 # Check pagination implementation
-grep -rn "pageToken\|nextLink\|nextPage" --include='*.swift' Sources/
+grep -rn "pageToken\|nextLink\|nextPage" --include='*.swift' "Unleashed Mail/Sources/"
 ```
 
 **Check for:**
 - [ ] Message list fetches use `$select` / `fields` parameter — don't download full message bodies for list view
-- [ ] Individual message fetches are batched with `TaskGroup` (5-10 concurrent, not unbounded)
+- [ ] Individual message fetches are batched with `TaskGroup` capped at **4** concurrent (matches `APIRequestCoordinator.shared.maxConcurrentRequests = 4` per `.claude/rules/api-endpoints.md`); never unbounded, never higher than 4 — the coordinator queues excess work but unbounded fan-out causes rate-limit cascades
 - [ ] Pagination is implemented — not fetching all messages at once
 - [ ] API responses are cached in GRDB, not re-fetched on every view appearance
 - [ ] Image/attachment previews use lazy loading — download only when scrolled into view
@@ -108,11 +129,11 @@ grep -rn "pageToken\|nextLink\|nextPage" --include='*.swift' Sources/
 
 ```bash
 # Find potential memory issues
-grep -rn "\[weak self\]\|\[unowned self\]" --include='*.swift' Sources/ | wc -l
-grep -rn "\.sink\|\.observe\|addObserver\|NotificationCenter" --include='*.swift' Sources/ | wc -l
+grep -rn "\[weak self\]\|\[unowned self\]" --include='*.swift' "Unleashed Mail/Sources/" | wc -l
+grep -rn "\.sink\|\.observe\|addObserver\|NotificationCenter" --include='*.swift' "Unleashed Mail/Sources/" | wc -l
 
 # Find large data structures that might grow unbounded
-grep -rn "var.*:\s*\[.*\]\s*=\s*\[\]" --include='*.swift' Sources/ViewModels/
+grep -rn "var.*:\s*\[.*\]\s*=\s*\[\]" --include='*.swift' "Unleashed Mail/Sources/ViewModels/"
 ```
 
 **Check for:**
@@ -129,7 +150,7 @@ grep -rn "var.*:\s*\[.*\]\s*=\s*\[\]" --include='*.swift' Sources/ViewModels/
 
 - [ ] **Optimistic updates**: UI reflects actions immediately (mark read, star) before API confirms
 - [ ] **Skeleton / placeholder loading**: Message list shows placeholders while loading, not a blank screen
-- [ ] **Progressive loading**: Message body renders as HTML streams in, not after full download
+- [ ] **Email-body rendering**: HTML must complete the full sanitize → CID-restore → style-extract → render-pipeline order before display (per `.claude/rules/webview-editor.md`). **Do NOT recommend "stream HTML progressively"** — the sanitizer/render pipeline is not chunk-safe and partial display can leak unsafe markup. Display only after the full pipeline completes.
 - [ ] **Instant search**: Local GRDB search returns results immediately; API search results append async
 - [ ] **Smooth scrolling**: Message list in `LazyVStack` with pre-fetching (trigger fetch before hitting bottom)
 - [ ] **Cancel stale requests**: Switching folders cancels in-flight fetches for the old folder
@@ -146,8 +167,8 @@ grep -rn "var.*:\s*\[.*\]\s*=\s*\[\]" --include='*.swift' Sources/ViewModels/
 
 ```bash
 # Check for accessibility labels
-grep -rn "accessibilityLabel\|accessibilityHint\|accessibilityValue" --include='*.swift' Sources/Views/
-grep -rn "\.accessibilityElement\|\.accessibilityHidden" --include='*.swift' Sources/Views/
+grep -rn "accessibilityLabel\|accessibilityHint\|accessibilityValue" --include='*.swift' "Unleashed Mail/Sources/Views/"
+grep -rn "\.accessibilityElement\|\.accessibilityHidden" --include='*.swift' "Unleashed Mail/Sources/Views/"
 ```
 
 - [ ] Interactive elements have `accessibilityLabel` set
