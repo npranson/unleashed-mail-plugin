@@ -92,10 +92,10 @@ claude --plugin-dir /path/to/unleashed-mail-plugin   # session-scoped, no market
          ▼                    ▼                           ▼
  ┌──────────────────────────────────────────────────────────────────────────────┐
  │                     AUTO-TRIGGERING SKILLS (14)                              │
- │  swift-tdd · swiftui-mvvm · grdb-patterns · macos-debugging  ·               │
- │  webview-composer · keychain-security · gmail-api · graph-api  ·             │
- │  provider-parity · agent-orchestration · error-handling  ·                   │
- │  accessibility-patterns · swiftlint-config ·  spm-management                 │
+ │  swift-tdd · swiftui-mvvm · grdb-patterns · macos-debugging ·                │
+ │  webview-composer · keychain-security · gmail-api · graph-api ·              │
+ │  provider-parity · agent-orchestration · error-handling ·                    │
+ │  accessibility-patterns · swiftlint-config · spm-management                  │
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
