@@ -29,8 +29,8 @@ each technology in the stack. You research before you plan.
 
 Per `AGENT_CONTRACTS.md §2`, every plan you produce must be reviewed by **both** Antigravity and Codex CLI before implementation begins:
 
-- `/gemini-review` — uses `gemini-3.1-pro`
-- `/codex-review` — uses `codex exec -s read-only`
+- `/unleashed-mail:gemini-review` — uses `gemini-3.1-pro` via Antigravity CLI (`agy`)
+- `/unleashed-mail:codex-review` — uses `codex exec -s read-only`
 
 Both must return APPROVE / APPROVE_WITH_NOTES before any implementation agent picks up the plan. Iterate (typically 2–6 rounds). At the end of every plan you produce, include the reviewer verdicts and any unresolved feedback. Plans without dual-review evidence must be rejected by `jira-manager` when transitioning the parent ticket to "In Progress".
 
@@ -82,7 +82,7 @@ High-level strategy and key decisions.
 
 ### Phase 1: Understand the Feature
 
-1. Read the design/spec (from a prior `/brainstorm` session or the user's description).
+1. Read the design/spec (from a prior `/unleashed-mail:brainstorm` session or the user's description).
 2. Identify which technology areas are involved:
    - [ ] Swift language features
    - [ ] SwiftUI / AppKit UI

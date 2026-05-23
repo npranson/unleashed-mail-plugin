@@ -66,8 +66,8 @@ Create `docs/planning/FEATURE_NAME_PLAN.md` for any feature, refactoring, or mul
 
 Every plan or debug session must be reviewed by **both** Antigravity and Codex CLI before implementation begins:
 
-- `/gemini-review` — uses `gemini-3.1-pro`
-- `/codex-review` — uses `codex exec -s read-only`
+- `/unleashed-mail:gemini-review` — uses `gemini-3.1-pro` via Antigravity CLI (`agy`)
+- `/unleashed-mail:codex-review` — uses `codex exec -s read-only`
 
 Both must produce APPROVE / APPROVE_WITH_NOTES before code edits start. Iterate (typically 2–6 rounds) until both converge. Diagnostic agents (`xcode-build-fixer`, `graph-api-debugger`) propose fixes for the user to apply — they don't gate auto-fixes since the user is in the loop.
 

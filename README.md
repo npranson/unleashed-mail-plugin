@@ -1,8 +1,8 @@
-# UnleashedMail — Claude Code Plugin v2.2.1
+# UnleashedMail — Claude Code Plugin v2.2.2
 
 A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email client supporting Gmail and Microsoft Graph, built with Swift 6, SwiftUI, AppKit, WKWebView, GRDB.swift (SQLCipher), and MVVM architecture.
 
-**20 agents · 14 skills · 3 commands**
+**20 agents · 17 skills · 3 commands**
 
 > v2.2.0 introduces [`AGENT_CONTRACTS.md`](AGENT_CONTRACTS.md) — the source of truth for cross-agent boundaries (release contract, plan-implement gate, data→logic→ui handoff, AI pipeline ownership, code review pipeline, CI pinning, MCP tool prefixes, mandatory project gates). When two agents disagree about a boundary, the contracts doc wins.
 
@@ -10,8 +10,16 @@ A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email
 
 ### v2.2.1
 
-- **Antigravity CLI migration** — Google retired Gemini CLI in May 2026; the dual-review gate now invokes Antigravity CLI (binary `agy`, model `gemini-3.1-pro`). Agent docs (`modern-standards-planner`, `release-manager`), `AGENT_CONTRACTS.md`, and `CLAUDE.md` updated. The `/gemini-review` slash command name is retained for backward compatibility — the underlying tool is Antigravity.
+- **Antigravity CLI migration** — Google retired Gemini CLI in May 2026; the dual-review gate now invokes Antigravity CLI (binary `agy`, model `gemini-3.1-pro`). Agent docs (`modern-standards-planner`, `release-manager`), `AGENT_CONTRACTS.md`, and `CLAUDE.md` updated.
 - **Model name updated** — `gemini-3.1-pro` graduated out of preview. References to `gemini-3.1-pro-preview` removed.
+
+### v2.2.2
+
+- **Review skills promoted into the plugin** — `gemini-review`, `codex-review`, and `create-feature-plan` were previously workspace-only skills referenced by the plugin's docs but not bundled. They now ship with the plugin under their namespaced slash commands: `/unleashed-mail:gemini-review`, `/unleashed-mail:codex-review`, `/unleashed-mail:create-feature-plan`.
+- **gemini-review rewritten for Antigravity (`agy`)** — replaces the retired `gemini-cli` binary, removes obsolete `-m`/`-o` flags, documents the TTY-only "text drip" print mode and the **Python `pty.openpty()` wrapper recipe** required to capture agy's output from non-TTY contexts (Bash automation, CI scripts).
+- **codex-review portability fix** — removed user-specific absolute path from the "working directory" note; references the workspace root abstractly so the skill is portable across installs.
+- **All plugin docs renamed slash-command refs** — `CLAUDE.md`, `README.md`, `AGENT_CONTRACTS.md`, `agents/modern-standards-planner.md` now reference the namespaced commands.
+- **Skill count: 17** (was 14) — adds `gemini-review`, `codex-review`, `create-feature-plan`.
 
 ### v2.2.0
 
@@ -63,7 +71,7 @@ claude --plugin-dir /path/to/unleashed-mail-plugin   # session-scoped, no market
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                          SLASH COMMANDS                                      │
-│    /brainstorm → /implement → /pr-review                                     │
+│    /unleashed-mail:brainstorm → /unleashed-mail:implement → /unleashed-mail:pr-review │
 └────────┬────────────────────┬───────────────────────────┬────────────────────┘
          │                    │                           │
          ▼                    ▼                           ▼
@@ -91,11 +99,12 @@ claude --plugin-dir /path/to/unleashed-mail-plugin   # session-scoped, no market
          │                    │                           │
          ▼                    ▼                           ▼
  ┌──────────────────────────────────────────────────────────────────────────────┐
- │                     AUTO-TRIGGERING SKILLS (14)                              │
+ │                     AUTO-TRIGGERING SKILLS (17)                              │
  │  swift-tdd · swiftui-mvvm · grdb-patterns · macos-debugging ·                │
  │  webview-composer · keychain-security · gmail-api · graph-api ·              │
  │  provider-parity · agent-orchestration · error-handling ·                    │
- │  accessibility-patterns · swiftlint-config · spm-management                  │
+ │  accessibility-patterns · swiftlint-config · spm-management ·                │
+ │  gemini-review · codex-review · create-feature-plan                          │
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -141,7 +150,7 @@ claude --plugin-dir /path/to/unleashed-mail-plugin   # session-scoped, no market
 | `ci-engineer` | GitHub Actions workflows (SHA-pinned), Xcode Cloud, build automation, coordination with `bump-build-number.sh` Pre/Post-Action scripts |
 | `release-manager` | `MAJOR.MINORRELEASE.YYMMBB` versioning, App Store / TestFlight submission, defers BB-byte to automation |
 
-## Skills (14) — Auto-activate based on context
+## Skills (17) — Auto-activate based on context
 
 | Skill | Triggers When |
 |---|---|
@@ -159,6 +168,9 @@ claude --plugin-dir /path/to/unleashed-mail-plugin   # session-scoped, no market
 | `accessibility-patterns` | Accessibility implementation patterns for macOS/SwiftUI |
 | `swiftlint-config` | SwiftLint rule configuration, violation remediation |
 | `spm-management` | Xcode-managed package dependencies (NOT root SwiftPM), version pinning, security audit |
+| `gemini-review` | Plan/debug review via Antigravity CLI (`agy`); includes Python PTY-wrapper recipe for non-TTY contexts |
+| `codex-review` | Read-only Codex CLI review for plans, debug sessions, and post-implementation audits |
+| `create-feature-plan` | Scaffolds a `FEATURE_NAME_PLAN.md` under `docs/planning/` using the project template |
 
 ## Commands (3)
 
@@ -182,7 +194,7 @@ Agents are designed for **flexible parallel execution** in any combination. The 
 The plugin enforces these non-negotiable processes:
 
 1. **Planning document** — `docs/planning/FEATURE_NAME_PLAN.md` for every feature (no exceptions)
-2. **Plan review gate** — Every plan or debug session must be reviewed by **both** `/gemini-review` and `/codex-review` before implementation. Both must produce APPROVE / APPROVE_WITH_NOTES; iterate (typically 2–6 rounds) until both converge.
+2. **Plan review gate** — Every plan or debug session must be reviewed by **both** `/unleashed-mail:gemini-review` (Antigravity CLI `agy`) and `/unleashed-mail:codex-review` before implementation. Both must produce APPROVE / APPROVE_WITH_NOTES; iterate (typically 2–6 rounds) until both converge.
 3. **Context7 usage** — Mandatory for code generation, setup, config, API docs lookup
 4. **Jira ticket hygiene** — Every change tracked at `https://unleashedservices.atlassian.net/` (project key `COREDEV`), updated throughout, with Epic association
 5. **Provider parity** — Gmail ↔ Graph implementations stay in sync; views/ViewModels obtain providers via `AccountScopedServiceProvider`, never concrete types

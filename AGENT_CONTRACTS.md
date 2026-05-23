@@ -69,14 +69,14 @@ A PR cannot merge to `main` (or to the version branch) without:
 ### Plan creation
 
 Every feature, refactor, or multi-step development requires `docs/planning/FEATURE_NAME_PLAN.md`.
-Use the project's `/create-feature-plan` skill to scaffold.
+Use the plugin's `/unleashed-mail:create-feature-plan` skill to scaffold.
 
 ### Plan review gate (mandatory)
 
 Before any implementation begins:
 
-1. Plan author runs `/gemini-review` (uses `gemini-3.1-pro`)
-2. Plan author runs `/codex-review` (uses `codex exec -s read-only`)
+1. Plan author runs `/unleashed-mail:gemini-review` (uses `gemini-3.1-pro` via Antigravity CLI `agy`)
+2. Plan author runs `/unleashed-mail:codex-review` (uses `codex exec -s read-only`)
 3. **Both must produce APPROVE / APPROVE_WITH_NOTES** before implementation starts
 4. Iterate (typically 2–6 rounds) until both converge
 
@@ -301,5 +301,7 @@ not block implementation).
   `Unleashed Mail/Sources/Services/CLAUDE.md`, `Unleashed Mail/Sources/Views/CLAUDE.md`,
   `Unleashed Mail/Sources/Models/CLAUDE.md`, `Unleashed Mail/Sources/Utilities/CLAUDE.md`,
   `Unleashed Mail/Sources/Components/CLAUDE.md`, `Unleashed Mail/Sources/ViewModels/CLAUDE.md`
-- Review prompts: `.claude/prompts/codex-review.md`, `.claude/prompts/gemini-plan-review.md`,
-  `.claude/prompts/gemini-debug-review.md`
+- Review skills (v2.2.2+, shipped with plugin): `/unleashed-mail:gemini-review`,
+  `/unleashed-mail:codex-review`. Skill sources at `skills/gemini-review/SKILL.md`,
+  `skills/codex-review/SKILL.md`. The earlier workspace-only `.claude/prompts/*.md`
+  files were retired when the skills moved into the plugin.

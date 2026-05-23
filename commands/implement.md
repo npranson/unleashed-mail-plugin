@@ -16,7 +16,7 @@ Check if a planning document exists for this feature:
 ls docs/planning/*PLAN*.md 2>/dev/null
 ```
 
-If no plan exists, run `/brainstorm` first — implementation without a tracked plan
+If no plan exists, run `/unleashed-mail:brainstorm` first — implementation without a tracked plan
 violates project CLAUDE.md.
 
 If a plan exists, read it and confirm the modern standards planner's recommendations

@@ -4,3 +4,7 @@ firebase-debug.log
 .env.*
 .DS_Store
 **/.DS_Store
+
+# Transient review prompt files (per-invocation, not source of truth)
+.agy-prompt.md
+.codex-prompt.md

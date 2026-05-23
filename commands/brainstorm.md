@@ -109,4 +109,4 @@ without a tracked plan.
 
 Update the Jira ticket with a link to the plan document.
 
-Wait for approval before proceeding to `/implement`.
+Wait for approval before proceeding to `/unleashed-mail:implement`.
