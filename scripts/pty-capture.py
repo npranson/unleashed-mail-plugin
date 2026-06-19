@@ -30,12 +30,15 @@ Examples
 Exit codes: the wrapped command's exit code propagates (0 = success; non-zero
 = failure). Captured output is written to <out-path> (default /tmp/pty-out.txt).
 """
+import fcntl
 import os
 import pty
 import re
 import select
 import signal
+import struct
 import sys
+import termios
 import time
 
 ANSI_RE = re.compile(rb'\x1b\[[0-9;?]*[a-zA-Z]')
@@ -91,6 +94,17 @@ def main(out_path: str, cmd: list[str]) -> int:
         # If exec fails the child must not return to caller's code:
         os._exit(127)
     # Parent.
+    # A PTY opened with no terminal to inherit (Claude/CI/non-TTY) reports a 0x0
+    # window size; width-aware CLIs (agy's text-drip, codex) then wrap to nothing
+    # or emit empty/garbled output. Give it a sane size — inherit COLUMNS/LINES
+    # if present, else 80x24 — so the capture path stays reliable.
+    try:
+        cols = int(os.environ.get("COLUMNS") or 80)
+        rows = int(os.environ.get("LINES") or 24)
+        fcntl.ioctl(master_fd, termios.TIOCSWINSZ,
+                    struct.pack("HHHH", rows, cols, 0, 0))
+    except (OSError, ValueError):
+        pass
     raw = bytearray()
     status = None  # raw wait-status; only assigned when we actually reap the child
     capture_error = None  # set if persisting the transcript fails (surfaced below)
