@@ -37,9 +37,12 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/pty-capture.py" /tmp/agy-out.txt -- \
 
 Do not paste or re-derive the recipe inline — invoke the committed [`scripts/pty-capture.py`](../../scripts/pty-capture.py). Its hardening contract (Codex rounds 1 + 2 verified):
 - **Command passed after `--`** — wraps any command (`agy`, `codex exec`, …); the program is resolved on `$PATH`, callable from any directory.
-- **`try / finally` block** — guarantees `master_fd` close + `agy` reaping even on `KeyboardInterrupt` or exception.
-- **`os.waitstatus_to_exitcode`** — agy's exit code propagates; failures aren't silently swallowed.
-- **`os._exit(127)` in child on `execv` failure** — prevents the failed child from running parent cleanup code.
+- **Controlling TTY via `pty.fork()`** — the child gets a real controlling terminal (`setsid()` + `TIOCSCTTY` handled by the stdlib), so CLIs that open `/dev/tty` (agy's text-drip, codex) render instead of failing with `ENXIO`. A plain `openpty()` + `dup2()` does not acquire one.
+- **`SIGTERM` → `SystemExit`** — a wrapper-level SIGTERM (CI timeout, process manager) still runs `finally`, so the child is reaped, never orphaned.
+- **`try / finally` block** — guarantees `master_fd` close + child reaping even on `KeyboardInterrupt`, SIGTERM, or exception.
+- **`os.waitstatus_to_exitcode`** — the child's exit code propagates; failures aren't silently swallowed.
+- **`os._exit(127)` in child on `execvp` failure** — prevents the failed child from running parent cleanup code.
+- **Unix newlines** — the PTY's `\r\n` (ONLCR) is normalized to `\n` in the captured file.
 - **`InterruptedError` → `continue`** (not `break`) — signals during `select`/`read` (e.g., SIGWINCH from terminal resize, SIGCHLD when child exits) retry the loop instead of terminating a healthy child.
 - **Bounded termination ladder** — finally block requests SIGTERM, waits up to `SIGTERM_GRACE_SEC` (5 s, configurable) polling with `WNOHANG`, then escalates to SIGKILL + blocking reap. Wrapper cannot hang indefinitely if `agy` ignores SIGTERM.
 - **Drain on natural exit is bounded** — after the child exits, the post-exit drain loop runs for up to 0.5 s rather than potentially looping forever on a never-EOF'ing PTY master.

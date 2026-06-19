@@ -12,7 +12,8 @@ A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email
 
 - **One shared PTY wrapper for both review CLIs** — new committed script [`scripts/pty-capture.py`](scripts/pty-capture.py) runs any command inside a pseudo-terminal, ANSI-strips its output, writes it to `<out-path>`, and propagates the child's exit code. It generalizes the agy-only `pty.openpty()` recipe that previously lived inline in `gemini-review`. Interface: `pty-capture.py <out-path> -- <command> [args...]`.
 - **`codex-review` now routes through the wrapper** — `codex exec` emits **0 bytes** when piped, redirected, or backgrounded (the recurring "STDN"/nothing-captured failure). Running every invocation as `pty-capture.py <out> -- codex exec …` guarantees capture with **no `-o` flag to forget**; pairs with the existing `Monitor` guidance.
-- **`gemini-review` points at the same committed script** — its agy invocations now call `${CLAUDE_PLUGIN_ROOT}/scripts/pty-capture.py`. The inline Python is retained as the reference implementation; the committed, command-agnostic script is the canonical artifact both skills invoke.
+- **`gemini-review` points at the same committed script** — its agy invocations now call `${CLAUDE_PLUGIN_ROOT}/scripts/pty-capture.py`; the inline reference recipe is removed so there is one canonical, command-agnostic script both skills invoke.
+- **Wrapper hardened per PR review (gemini + codex)** — uses `pty.fork()` so the child acquires a real **controlling terminal** (`/dev/tty` works instead of `ENXIO`-ing terminal-oriented CLIs), converts a wrapper-level **`SIGTERM` into `SystemExit`** so the child is reaped rather than orphaned, and **normalizes PTY `\r\n` → `\n`** in the captured output.
 
 ### v2.2.3
 

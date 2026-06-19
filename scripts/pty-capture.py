@@ -34,7 +34,6 @@ import os
 import pty
 import re
 import select
-import shutil
 import signal
 import sys
 import time
@@ -47,25 +46,25 @@ POLL_INTERVAL_SEC = 0.1
 def main(out_path: str, cmd: list[str]) -> int:
     if not cmd:
         raise SystemExit("no command given after `--`")
-    # Resolve the program on $PATH so execv gets an absolute path; fall back to
-    # the literal token (execv will then fail cleanly and exit 127 in the child).
-    program = shutil.which(cmd[0]) or cmd[0]
-    args = [program, *cmd[1:]]
-    master_fd, slave_fd = pty.openpty()
-    pid = os.fork()
+    # If the wrapper itself is asked to terminate (CI timeout, process manager),
+    # turn SIGTERM into a SystemExit so the `finally` block still runs and reaps
+    # the child instead of leaving agy/codex orphaned in the background.
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(128 + signum))
+    # pty.fork() forks with the child attached to a NEW controlling terminal: it
+    # performs setsid(), the TIOCSCTTY ioctl, and wires the slave to
+    # stdin/stdout/stderr. That controlling TTY is what lets terminal-oriented
+    # CLIs that open /dev/tty (agy's text-drip, codex) actually render — a plain
+    # openpty()+dup2() leaves the child with no controlling terminal (ENXIO).
+    pid, master_fd = pty.fork()
     if pid == 0:
-        # Child: become the wrapped process, inheriting only the PTY's slave end.
-        os.close(master_fd)
-        os.setsid()
-        os.dup2(slave_fd, 0)
-        os.dup2(slave_fd, 1)
-        os.dup2(slave_fd, 2)
-        os.close(slave_fd)
-        os.execv(args[0], args)
-        # If execv fails the child must not return to caller's code:
+        # Child: become the wrapped command. os.execvp resolves it on $PATH.
+        try:
+            os.execvp(cmd[0], cmd)
+        except OSError:
+            pass
+        # If exec fails the child must not return to caller's code:
         os._exit(127)
     # Parent.
-    os.close(slave_fd)
     raw = bytearray()
     status = None  # raw wait-status; only assigned when we actually reap the child
     try:
@@ -158,7 +157,8 @@ def main(out_path: str, cmd: list[str]) -> int:
             pass
     # status is now always assigned (0 if reap raced) — propagate exit code.
     exit_status = os.waitstatus_to_exitcode(status) if status is not None else 1
-    cleaned = ANSI_RE.sub(b'', bytes(raw))
+    # PTYs translate \n -> \r\n (ONLCR); normalize back to clean Unix newlines.
+    cleaned = ANSI_RE.sub(b'', bytes(raw)).replace(b'\r\n', b'\n')
     with open(out_path, 'wb') as f:
         f.write(cleaned)
     return exit_status
