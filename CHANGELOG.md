@@ -91,7 +91,10 @@ _Nothing yet — add new changes here._
   `parity`, and `test-coverage` findings aren't tied to a changed file — their `file`
   is a scheme/target/label — so they now gate regardless of the diff. Previously a red
   build emitted as a `verification` blocker was scoped out to pre-existing and the
-  provisional verdict came back `APPROVE` with no `blockersToVerify`.
+  provisional verdict came back `APPROVE` with no `blockersToVerify`. The `swift-reviewer`
+  verify gate also now treats these self-emitted rows as confirmed-by-construction (it
+  ran the command) — it gates them without trying to `Read` a scheme:0 location and never
+  downgrades them to NEEDS DISCUSSION.
 - **MCP robustness (per spec):** the `findings` input schema is permissive (`items:
   object`) so a malformed row reaches the server and is quarantined instead of being
   rejected client-side (which would defeat quarantine); the tool result mirrors the

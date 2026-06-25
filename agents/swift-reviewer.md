@@ -387,11 +387,20 @@ It returns:
 
 #### Verify gate — you own this (the tool can't read the repo)
 
-For **every** entry in `blockersToVerify`, open the cited location with Read/Grep and
+**Self-emitted global gates are confirmed by construction — do NOT re-verify them.** A
+`blockersToVerify` row whose `category` is `verification`, `parity`, or `test-coverage`
+(equivalently `sourceAgent: "swift-reviewer"`, usually `file` = a scheme/target/symbol
+with `line: 0`) was produced by *you* in Steps 3–4 — you actually ran `xcodebuild` /
+`swiftlint` / the test run, or detected the missing counterpart. It gates **as-is**:
+never try to open a scheme name as a `file:line`, and never move it to Needs Confirmation
+because it isn't a readable location. A red build / lint / test or a parity/coverage gap
+is always **REQUEST CHANGES**.
+
+For **every other** entry in `blockersToVerify`, open the cited location with Read/Grep and
 confirm it is a real, in-scope defect — not merely that a line exists. For `line > 0`
 read `file:line`…`lineEnd`; for `line: 0` inspect the file or the symbol named in
 `finding` (never downgrade a finding just because it is file-level). `confidence`
-only sets how hard to scrutinize and what to check first — you verify every blocker:
+only sets how hard to scrutinize and what to check first — you verify every such blocker:
 - **Confirmed** against the code → it gates (at any confidence).
 - **Cannot confirm** (pattern absent, out of scope, ambiguous) → move it to *Needs
   Confirmation*. Never block on an unverifiable blocker; never silently drop one.
