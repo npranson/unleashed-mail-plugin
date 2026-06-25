@@ -237,7 +237,8 @@ def _issue_and_fix(c: Cluster) -> tuple[str, str]:
     finding, fix = p.finding, p.fix
     extra = [f for f in c.findings if f is not p]
     if extra:  # cross-link the other fixes in the cluster — nothing is dropped
-        finding += f"  _(+{len(extra)} related: {', '.join(f.category for f in extra)})_"
+        cats = ", ".join(dict.fromkeys(f.category for f in extra))  # de-dup, keep order
+        finding += f"  _(+{len(extra)} related: {cats})_"
         fix += "".join(f"  ·also· {f.fix}" for f in extra)
     return finding, fix
 

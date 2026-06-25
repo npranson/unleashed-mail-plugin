@@ -53,6 +53,15 @@ class TestDedup(unittest.TestCase):
         self.assertIn("FIX_A", report)
         self.assertIn("FIX_B", report)   # second fix is never silently dropped
 
+    def test_related_categories_are_deduped(self):
+        cs = S.cluster_findings([f(category="logic", line=10, lineEnd=20, fix="A"),
+                                 f(category="error-handling", line=11, lineEnd=19, fix="B"),
+                                 f(category="error-handling", line=12, lineEnd=18, fix="C")])
+        self.assertEqual(len(cs), 1)
+        finding, _ = S._issue_and_fix(cs[0])
+        self.assertIn("related:", finding)
+        self.assertEqual(finding.count("error-handling"), 1)   # not "error-handling, error-handling"
+
 
 class TestOwnershipRouting(unittest.TestCase):
     def test_a11y_authoritative(self):

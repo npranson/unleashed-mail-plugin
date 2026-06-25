@@ -92,6 +92,9 @@ def _blockers_to_verify(review) -> list[dict]:
 
 
 def _call_synthesize(arguments: dict) -> dict:
+    if not isinstance(arguments, dict):
+        # a non-dict (e.g. a number) would TypeError on `in`/`[]` -> -32603 crash
+        raise _RpcError(-32602, "arguments must be an object")
     # Both are required by inputSchema; a MISSING one is a malformed call, not a
     # reason to silently APPROVE — a missing changed_files defaults to [] and would
     # mis-scope every finding to pre-existing, hiding real blockers behind an APPROVE.

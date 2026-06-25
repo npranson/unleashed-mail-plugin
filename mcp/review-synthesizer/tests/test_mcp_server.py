@@ -171,6 +171,12 @@ class TestSynthesizeTool(unittest.TestCase):
                                   "arguments": {"changed_files": ["A.swift"]}}}])
         self.assertEqual(out[0]["error"]["code"], -32602)
 
+    def test_non_object_arguments_rejected(self):
+        # a non-dict arguments (e.g. a number) would TypeError -> -32603; reject -32602
+        out, _ = rpc([{"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                       "params": {"name": "synthesize_review", "arguments": 5}}])
+        self.assertEqual(out[0]["error"]["code"], -32602)
+
 
 if __name__ == "__main__":
     unittest.main()
