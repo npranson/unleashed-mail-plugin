@@ -107,6 +107,10 @@ _Nothing yet — add new changes here._
   provisional verdict + `blockersToVerify` into the text `content` (not only
   `structuredContent`) for clients that don't surface structured output; and the stdio
   loop uses `readline()` to avoid the read-ahead buffering that can deadlock a pipe.
+- **UTF-8 + doc consistency:** the stdio server (and its subprocess test) pin UTF-8 so
+  the report emoji survive a non-UTF-8 locale (minimal CI containers); the server
+  README's fallback scope rule and the `agent-orchestration` skill are updated to match
+  the always-gate and missing-reviewer behaviours above.
 - Removed the superseded `prototypes/hybrid-review-synthesizer/` sandbox — a buggier
   duplicate of the shipped server; its design is captured in the server's README.
 

@@ -180,8 +180,9 @@ The orchestrator parses the JSON — not the prose — and deduplicates on `file
 overlapping `line`…`lineEnd` + **same root cause** (same category-family is necessary
 but not sufficient), per `swift-reviewer` Step 5. A malformed or prose-only block is
 recovered per Step 5 (lenient self-repair first → re-run a fresh reviewer → **fail
-closed** → `verification` blocker → NEEDS DISCUSSION), never synthesized from prose
-alone. The orchestrator folds in its own `parity` / `test-coverage` / `verification`
+closed** → flag the missing reviewer as an *uncertainty* and route to NEEDS DISCUSSION —
+**not** a `verification` blocker, which is reserved for checks that actually ran and is
+treated as confirmed-by-construction), never synthesized from prose alone. The orchestrator folds in its own `parity` / `test-coverage` / `verification`
 rows (same schema) and runs a verify gate on every blocker before the verdict.
 
 ```text

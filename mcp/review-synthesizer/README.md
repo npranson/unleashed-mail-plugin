@@ -48,8 +48,10 @@ The server returns `blockersToVerify` precisely because it cannot read the repo.
 ## The deterministic rules (authoritative; also the prose fallback for swift-reviewer)
 
 1. **Scope.** Gating set = findings whose `file` ∈ `$CHANGED`, **plus** any tagged
-   `scope: "structural-pipeline"` (they gate even outside the diff). Everything else
-   is *Pre-existing* (surfaced, non-gating).
+   `scope: "structural-pipeline"`, **plus** every orchestrator-owned global gate
+   (`verification`, `parity`, `test-coverage` — their `file` is a scheme/target/label,
+   not a diff path, so they gate regardless). Everything else is *Pre-existing*
+   (surfaced, non-gating).
 2. **Merge-candidate.** Two findings are candidates iff same `file`, **overlapping**
    `line..lineEnd`, **and** same category-family — except the deliberate cross-family
    ownership pairs (`token-race`↔credential/oauth/keychain; `perceived-perf`↔

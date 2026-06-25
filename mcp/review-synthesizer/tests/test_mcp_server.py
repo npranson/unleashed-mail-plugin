@@ -13,8 +13,8 @@ SERVER = os.path.join(os.path.dirname(HERE), "mcp_server.py")
 def rpc(messages, timeout=30):
     """Send newline-delimited JSON-RPC messages; return (parsed_replies, proc)."""
     stdin = "\n".join(m if isinstance(m, str) else json.dumps(m) for m in messages) + "\n"
-    proc = subprocess.run([sys.executable, SERVER], input=stdin,
-                          capture_output=True, text=True, timeout=timeout)
+    proc = subprocess.run([sys.executable, SERVER], input=stdin, capture_output=True,
+                          text=True, encoding="utf-8", timeout=timeout)  # report has emoji
     replies = [json.loads(ln) for ln in proc.stdout.splitlines() if ln.strip()]
     return replies, proc
 

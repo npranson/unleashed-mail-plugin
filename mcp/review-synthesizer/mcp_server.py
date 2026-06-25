@@ -194,6 +194,13 @@ def _send(obj: dict) -> None:
 
 
 def main() -> int:
+    # The protocol + the report emoji (🔴🟡🔵) are UTF-8; pin the streams so a non-UTF-8
+    # locale (minimal CI containers, some Windows/POSIX) can't raise UnicodedecodeError.
+    for stream in (sys.stdin, sys.stdout):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):  # not a TextIOWrapper / already detached
+            pass
     _log("ready (stdio)")
     # readline() loop, NOT `for line in sys.stdin` — the file iterator's read-ahead
     # buffering can deadlock a bidirectional pipe protocol (it blocks filling its
