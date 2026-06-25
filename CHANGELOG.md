@@ -26,7 +26,7 @@ _Nothing yet — add new changes here._
   drop), a provisional verdict, and `blockersToVerify` for the agent to confirm.
   Declared in the root `.mcp.json`; exposed to `swift-reviewer` as
   `mcp__plugin_unleashed-mail_review-synthesizer__synthesize_review`.
-- **Unit tests** for the synthesizer (`mcp/review-synthesizer/tests/`, 52 stdlib
+- **Unit tests** for the synthesizer (`mcp/review-synthesizer/tests/`, 78 stdlib
   `unittest` cases): schema edge cases, dedup/ownership/scope/verdict, render
   (findings-only, no leaked verdict), tool-input validation, and the MCP JSON-RPC
   protocol (initialize / tools.list / tools.call / ping, non-object & non-JSON
@@ -101,9 +101,10 @@ _Nothing yet — add new changes here._
 - **A missing reviewer routes to NEEDS DISCUSSION as an uncertainty, not a `verification`
   blocker** — reconciles the fail-closed path with the verification-gate carve-out (which
   treats `verification` rows as confirmed-by-construction → REQUEST CHANGES).
-- **MCP robustness (per spec):** the `findings` input schema is permissive (`items:
-  object`) so a malformed row reaches the server and is quarantined instead of being
-  rejected client-side (which would defeat quarantine); the tool result mirrors the
+- **MCP robustness (per spec):** the `findings` input schema is fully permissive
+  (`items: {}` — accept any JSON) so a malformed row, even a non-object like
+  `null`/string/array, reaches the server and is quarantined individually instead of
+  being rejected client-side (which would defeat quarantine); the tool result mirrors the
   provisional verdict + `blockersToVerify` into the text `content` (not only
   `structuredContent`) for clients that don't surface structured output; and the stdio
   loop uses `readline()` to avoid the read-ahead buffering that can deadlock a pipe.
