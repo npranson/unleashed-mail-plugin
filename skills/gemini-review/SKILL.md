@@ -137,6 +137,7 @@ Slash commands are NOT available via `-p`; you must be inside an interactive `ag
 5. **Continue the conversation** with `agy -c` or `agy -i` for follow-up questions. Do not treat the first response as final.
 6. **Capture output** — if invoking from Claude Code's Bash tool, the PTY wrapper writes to `/tmp/agy-out.txt`. Read that file back into context.
 7. **Incorporate** the feedback into the plan; iterate until APPROVE or APPROVE_WITH_NITS.
+8. **Synthesize both reviews** — once the paired `/unleashed-mail:codex-review` transcript is also captured, run `/unleashed-mail:review-synthesis` to combine `/tmp/agy-out.txt` + `/tmp/codex-out.txt` into one auditable **Combined verdict** block before implementation.
 
 Do not skip to save time. Do not treat as a rubber stamp.
 

@@ -320,3 +320,16 @@ finding; emit `[]` if clean. JSON escaping handles pipes, backticks, and newline
 > `token-race` on a credential site overlaps `security-reviewer` by design — the
 > orchestrator merges it into the security finding (Step 5 dedup), so the overlap
 > must be present in your JSON to be reconciled.
+
+## Output Contract
+
+**Return status:** COMPLETE | BLOCKED | PARTIAL
+
+State this status on the **final line** of your report, **after** the JSON findings array. The
+orchestrator reads the status **first, then** the array — so a reviewer that *couldn't run* returns
+`BLOCKED` + `[]` instead of an empty `[]` that reads as a clean pass. Status (did-the-review-finish) is
+orthogonal to the findings verdict (is-the-code-OK).
+
+- **COMPLETE** — review ran fully; the JSON findings array above is authoritative (`[]` if clean).
+- **BLOCKED** — could not review. Required: **Blocker Description** · **What Was Attempted**. Emit `[]` for findings.
+- **PARTIAL** — reviewed some files. Required: **Completed** · **Remaining** (name any structural files not reached; tie to `scope: structural-pipeline`) · **Confidence: [0-100]**. Findings cover ONLY the completed scope.

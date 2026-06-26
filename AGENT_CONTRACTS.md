@@ -78,6 +78,7 @@ Before any implementation begins:
 1. Plan author runs `/unleashed-mail:gemini-review` (uses `gemini-3.1-pro` via Antigravity CLI `agy`)
 2. Plan author runs `/unleashed-mail:codex-review` (uses `codex exec -s read-only`)
 3. **Both must produce APPROVE / APPROVE_WITH_NOTES** before implementation starts
+   - **(3a)** Once both transcripts are captured, run `/unleashed-mail:review-synthesis` to combine them into a single auditable **Combined verdict** block (`APPROVE | APPROVE_WITH_NOTES | REQUEST_CHANGES | DISAGREEMENT`) — the record that this gate passed, with any divergence surfaced as `DISAGREEMENT` (never averaged) and a missing/empty transcript never counted as approval. This is the **plan-review** synthesizer (2 prose transcripts); keep it distinct from the code-review `synthesize_review` MCP tool (5 JSON findings arrays, `APPROVE_WITH_SUGGESTIONS` / `NEEDS_DISCUSSION`) used in §5.
 4. Iterate (typically 2–6 rounds) until both converge
 
 ### Diagnostic agent scope (`xcode-build-fixer`, `graph-api-debugger`)
@@ -178,10 +179,10 @@ log as they go. `jira-manager` mirrors plan state to Jira ticket status.
 ### Order of operations
 
 1. `code-simplifier` runs first (clean before review)
-2. `swift-reviewer` orchestrates: spawns 4 sub-reviewers in parallel + `jira-manager`. Each sub-reviewer returns a structured **JSON findings array** (not prose)
+2. `swift-reviewer` orchestrates: spawns 4 sub-reviewers in parallel + `jira-manager`. Each sub-reviewer returns a structured **JSON findings array** (not prose) **plus an Output Contract status** — `COMPLETE | BLOCKED | PARTIAL` — read **before** the findings (a `BLOCKED` reviewer returning `[]` means "could not review," not "clean")
 3. `swift-reviewer` runs provider parity audit itself
 4. `swift-reviewer` calls the **`synthesize_review` MCP tool** (bundled `review-synthesizer` server) to dedup / scope-filter / ownership-merge the collected JSON findings in code — pure compute, no repo access
-5. `swift-reviewer` owns the **verify gate**: it opens each `blockersToVerify` `file:line`, confirms the blocker against the code, and only then decides the final verdict (unconfirmed blockers → NEEDS DISCUSSION, not REQUEST CHANGES). If the tool is unavailable it applies the documented rules in `mcp/review-synthesizer/README.md` manually
+5. `swift-reviewer` owns the **verify gate**: it opens each `blockersToVerify` `file:line`, confirms the blocker against the code, and only then decides the final verdict (unconfirmed blockers → NEEDS DISCUSSION, not REQUEST CHANGES). A sub-reviewer that returned **BLOCKED** is the explicit form of a did-not-run uncertainty → a Needs-Confirmation item → **NEEDS DISCUSSION** (**not** a `verification` blocker, which is confirmed-by-construction and gates REQUEST CHANGES); a **PARTIAL** reviewer's findings are kept for its completed scope plus a non-gating `verification` warning naming the files it did not reach. If the tool is unavailable it applies the documented rules in `mcp/review-synthesizer/README.md` manually
 6. `jira-manager` logs verdict to Jira
 
 ### Base branch detection

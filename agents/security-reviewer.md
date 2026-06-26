@@ -258,3 +258,16 @@ Emit your own finding even when it overlaps another reviewer's turf — for a
 credential-site race, emit a `credential`/`oauth`/`keychain` finding (concurrency may
 also flag the same site as `token-race`). Use **your** vocabulary, not theirs; the
 orchestrator reconciles the overlap under security (Step 5) only if your row is present.
+
+## Output Contract
+
+**Return status:** COMPLETE | BLOCKED | PARTIAL
+
+State this status on the **final line** of your report, **after** the JSON findings array. The
+orchestrator reads the status **first, then** the array — so a reviewer that *couldn't run* returns
+`BLOCKED` + `[]` instead of an empty `[]` that reads as a clean pass. Status (did-the-review-finish) is
+orthogonal to the findings verdict (is-the-code-OK).
+
+- **COMPLETE** — review ran fully; the JSON findings array above is authoritative (`[]` if clean).
+- **BLOCKED** — could not review. Required: **Blocker Description** · **What Was Attempted**. Emit `[]` for findings.
+- **PARTIAL** — reviewed some files. Required: **Completed** · **Remaining** (name any structural files not reached; tie to `scope: structural-pipeline`) · **Confidence: [0-100]**. Findings cover ONLY the completed scope.

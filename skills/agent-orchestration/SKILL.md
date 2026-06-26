@@ -183,10 +183,16 @@ recovered per Step 5 (lenient self-repair first → re-run a fresh reviewer → 
 closed** → flag the missing reviewer as an *uncertainty* and route to NEEDS DISCUSSION —
 **not** a `verification` blocker, which is reserved for checks that actually ran and is
 treated as confirmed-by-construction), never synthesized from prose alone. The orchestrator folds in its own `parity` / `test-coverage` / `verification`
-rows (same schema) and runs a verify gate on every blocker before the verdict.
+rows (same schema) and runs a verify gate on every blocker before the verdict. Each reviewer
+also returns an **Output Contract** status (`COMPLETE | BLOCKED | PARTIAL`), which the
+orchestrator reads **before** the findings: a `BLOCKED` reviewer is the explicit form of that
+missing-reviewer uncertainty (→ NEEDS DISCUSSION, **not** a `verification` blocker), and a
+`PARTIAL` reviewer keeps the findings for its completed scope plus a non-gating `verification`
+**warning** naming the files it didn't reach (per `swift-reviewer` Step 5).
 
 ```text
 Handoff: Review complete
+- Status: COMPLETE | BLOCKED | PARTIAL (the Output Contract — read BEFORE the findings; a BLOCKED reviewer returning [] means "could not review," not "clean")
 - Severity: [highest severity found]
 - Findings: [count by severity, with confidence]
 - Structured Findings: a fenced json array of objects, each

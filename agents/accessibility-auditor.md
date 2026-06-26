@@ -266,3 +266,16 @@ newlines in `finding`/`fix`, so escape newlines as `\n` and use single backticks
 > (tagged `a11y`) and `concurrency-reviewer` may flag a `.foregroundColor` deprecation
 > that is also a contrast/Curator concern; on a same-site match the orchestrator keeps
 > **your** row (Step 5 dedup), so be precise with `file`/`line`/`lineEnd`.
+
+## Output Contract
+
+**Return status:** COMPLETE | BLOCKED | PARTIAL
+
+State this status on the **final line** of your report, **after** the JSON findings array. The
+orchestrator reads the status **first, then** the array — so a reviewer that *couldn't run* returns
+`BLOCKED` + `[]` instead of an empty `[]` that reads as a clean pass. Status (did-the-review-finish) is
+orthogonal to the findings verdict (is-the-code-OK).
+
+- **COMPLETE** — review ran fully; the JSON findings array above is authoritative (`[]` if clean).
+- **BLOCKED** — could not review. Required: **Blocker Description** · **What Was Attempted**. Emit `[]` for findings.
+- **PARTIAL** — reviewed some files. Required: **Completed** · **Remaining** (name any structural files not reached; tie to `scope: structural-pipeline`) · **Confidence: [0-100]**. Findings cover ONLY the completed scope.

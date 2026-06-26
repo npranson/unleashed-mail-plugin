@@ -367,6 +367,30 @@ A clean reviewer emits `[]`. Finally, spot-check that any 🔴 in a
 reviewer's *prose* appears as a `blocker` row in its JSON; if one is missing, recover it
 before merging.
 
+#### Read each reviewer's Output Contract status first
+
+Every specialist reviewer ends with a `## Output Contract` status — `COMPLETE | BLOCKED |
+PARTIAL` — that is **orthogonal** to its findings: it reports whether the review *finished*,
+not whether the code is OK. Read it **before** you trust the `[]`:
+
+- **COMPLETE** → the JSON array is authoritative; proceed normally.
+- **BLOCKED** → the reviewer *could not run* (missing files, unreadable diff, tooling
+  failure). This is the **explicit** form of the missing-reviewer case above — treat it
+  identically: a `BLOCKED` reviewer is an *uncertainty* (the review is incomplete for that
+  domain), not a confirmed defect and not a clean pass. List it as a **Needs Confirmation**
+  item named for the blocked reviewer (quote its *Blocker Description*) and set the verdict to
+  **NEEDS DISCUSSION**. Do **not** mint a `category: verification` blocker for it — that family
+  is reserved for the global checks *you* actually ran (build/lint/test/parity/coverage) and is
+  treated as confirmed-by-construction (REQUEST CHANGES); a "couldn't run" is the opposite.
+- **PARTIAL** → keep the findings it returned (they cover only its *Completed* scope) **and**
+  record a `category: verification` **warning** (`severity: warning`, `sourceAgent:
+  "swift-reviewer"`, `file` = the reviewer's domain or a named *Remaining* file, `line: 0`)
+  noting that the named reviewer covered only part of the changeset, and listing the *Remaining*
+  files. A verification **warning** keeps the scope gap visible in the Build / Lint / Tests
+  bucket **without** gating — only a verification *blocker* gates. If any *Remaining* file is
+  **structural** (Step 1b), the unreviewed-pipeline risk is higher: escalate that gap to a
+  **Needs Confirmation** item → NEEDS DISCUSSION rather than a mere warning.
+
 #### Synthesize via the deterministic tool
 
 The merge logic — scope filter, category-aware dedup, ownership routing, the

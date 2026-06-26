@@ -1,6 +1,6 @@
 ---
 description: Brainstorm and design a feature — research modern approaches, then pressure-test with enterprise and SMB stakeholder personas before planning
-allowed-tools: Read, Grep, Glob, Agent, WebFetch, WebSearch
+allowed-tools: Read, Grep, Glob, Agent, WebFetch, WebSearch, AskUserQuestion
 disable-model-invocation: true
 ---
 
@@ -44,6 +44,54 @@ Present a concise design covering:
 3. **ViewModel** — new or modified ViewModels
 4. **View** — UI changes (SwiftUI views, WKWebView changes)
 5. **Provider parity** — what both Gmail and Graph need, and any known asymmetries
+
+## Step 4b: Decision-Support Options (for forks)
+
+**Only when the design has a genuine architectural fork** — a point where two or more materially
+different approaches are viable and the choice shapes the rest of the plan (sync strategy, storage
+shape, provider mechanism, migration timing). Skip this step entirely for a linear design with one
+obvious approach; do **not** manufacture a fork.
+
+Present **2–4 options** in a comparison table, then call **`AskUserQuestion`** to record the chosen
+fork **before** the Step 9 plan document is written — so the plan commits to a decided approach, not an
+open question. No emoji; use the project's vocabulary (`**Pros**` / `**Cons**` / `**(Recommended)**`).
+
+**Comparison table** — one column per option, at least these rows:
+
+| Dimension | Option A | Option B |
+|---|---|---|
+| **Summary** | one line | one line |
+| **Pros** | … | … |
+| **Cons** | … | … |
+| **Parity-Impact** | what Gmail needs · what Graph needs · any asymmetry | … |
+| **Effort** | S / M / L | S / M / L |
+| **Reversibility** | easy / moderate / hard to undo later | … |
+| **Best for** | when this option wins | … |
+
+Then a recommendation line — **`Option X (Recommended)`** — one sentence on why, honest about the
+trade-off being accepted.
+
+**Parity-Impact is mandatory — never drop that row.** Every sync / compose / push / storage fork has a
+provider-parity dimension (CLAUDE.md). A "Gmail-only quick win" must still show its Graph cost (e.g. a
+tracked `// TODO: PARITY` stub), not omit the column.
+
+**Worked examples (real unleashed forks):**
+
+- **Incremental sync:** Gmail `historyId`-incremental vs full resync. Parity-Impact: Graph's counterpart
+  is `deltaLink` delta queries — the choice must land for **both** providers.
+- **Push vs poll:** Gmail Pub/Sub push vs Graph webhook subscription / delta-poll — different
+  freshness/cost trade-offs per provider.
+- **Compose editor:** `NativeRichTextEditor` (macOS 26+) vs `HTMLWebViewEditor` (≤25). **This is
+  OS-gated, not a peer choice** — present it as a hard precondition (the native editor only exists on
+  macOS 26+; the WebKit editor is the floor on ≤25), never as two interchangeable alternatives on
+  macOS 25.
+- **Migration timing:** CRITICAL (runs at startup, blocks UI) vs DEFERRABLE (background after UI loads).
+  **Default to DEFERRABLE** (CLAUDE.md "defer unless proven critical"); starring CRITICAL requires
+  explicit justification that the data is needed before first paint.
+
+**Record the decision:** call `AskUserQuestion` with the option labels — lead with the recommended one,
+suffixed `(Recommended)`. Carry the chosen option, **and** the rejected alternatives as "considered and
+why not," into the Step 8 summary and the Step 9 plan document.
 
 ## Step 5: Research Modern Standards
 

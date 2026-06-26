@@ -1,12 +1,19 @@
-# UnleashedMail — Claude Code Plugin v2.3.0
+# UnleashedMail — Claude Code Plugin v2.3.1
 
 A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email client supporting Gmail and Microsoft Graph, built with Swift 6, SwiftUI, AppKit, WKWebView, GRDB.swift (SQLCipher), and MVVM architecture.
 
-**20 agents · 17 skills · 3 commands · 1 MCP server**
+**20 agents · 18 skills · 3 commands · 1 MCP server**
 
 > v2.2.0 introduces [`AGENT_CONTRACTS.md`](AGENT_CONTRACTS.md) — the source of truth for cross-agent boundaries (release contract, plan-implement gate, data→logic→ui handoff, AI pipeline ownership, code review pipeline, CI pinning, MCP tool prefixes, mandatory project gates). When two agents disagree about a boundary, the contracts doc wins.
 
 ## What's New
+
+### v2.3.1
+
+- **Plan-review synthesis skill** — new [`/unleashed-mail:review-synthesis`](skills/review-synthesis/SKILL.md) reads the two captured plan-review transcripts (gemini → `/tmp/agy-out.txt`, codex → `/tmp/codex-out.txt`) and emits one auditable **Combined verdict** block (`APPROVE | APPROVE_WITH_NOTES | REQUEST_CHANGES | DISAGREEMENT`) with Agreement / Disagreement / Minority report / Risk register / Confidence. Read-only and gates nothing automatically; a one-approve / one-reject split is surfaced as `DISAGREEMENT` rather than averaged, and a missing/empty transcript can never claim `APPROVE`. Kept **distinct** from the code-review `synthesize_review` MCP tool (5 JSON arrays, `APPROVE_WITH_SUGGESTIONS`). Wired into [`AGENT_CONTRACTS.md`](AGENT_CONTRACTS.md) §2 as plan-review step 3a.
+- **Reviewer Output-Contract status enum** — the four specialist reviewers now end with a `## Output Contract` status (`COMPLETE | BLOCKED | PARTIAL`) that is **orthogonal** to their findings, so a reviewer that *couldn't run* returns `BLOCKED` + `[]` instead of an empty `[]` that reads as a clean pass. `swift-reviewer` Step 5 reads status **first**: `BLOCKED` → NEEDS DISCUSSION (the explicit form of a did-not-run uncertainty — **not** a `verification` blocker); `PARTIAL` → keep completed-scope findings + a non-gating `verification` warning naming the un-reviewed files. No synthesizer (Python) change.
+- **Decision-support option tables in `/unleashed-mail:brainstorm`** — a new design-phase **Step 4b** presents 2–4 options for a genuine architectural fork in a comparison table (with an unleashed-specific **Parity-Impact** column, S/M/L effort, a `**(Recommended)**` row, no emoji), then calls `AskUserQuestion` to record the chosen fork before the plan document is written. `AskUserQuestion` is added to the command's `allowed-tools` (a command-interface change).
+- **Skill count: 18** (was 17) — adds `review-synthesis`.
 
 ### v2.3.0
 
@@ -119,12 +126,12 @@ claude --plugin-dir /path/to/unleashed-mail-plugin   # session-scoped, no market
          │                    │                           │
          ▼                    ▼                           ▼
  ┌──────────────────────────────────────────────────────────────────────────────┐
- │                     AUTO-TRIGGERING SKILLS (17)                              │
+ │                     AUTO-TRIGGERING SKILLS (18)                              │
  │  swift-tdd · swiftui-mvvm · grdb-patterns · macos-debugging ·                │
  │  webview-composer · keychain-security · gmail-api · graph-api ·              │
  │  provider-parity · agent-orchestration · error-handling ·                    │
  │  accessibility-patterns · swiftlint-config · spm-management ·                │
- │  gemini-review · codex-review · create-feature-plan                          │
+ │  gemini-review · codex-review · create-feature-plan · review-synthesis       │
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -172,7 +179,7 @@ claude --plugin-dir /path/to/unleashed-mail-plugin   # session-scoped, no market
 | `ci-engineer` | GitHub Actions workflows (SHA-pinned), Xcode Cloud, build automation, coordination with `bump-build-number.sh` Pre/Post-Action scripts |
 | `release-manager` | `MAJOR.MINORRELEASE.YYMMBB` versioning, App Store / TestFlight submission, defers BB-byte to automation |
 
-## Skills (17) — Auto-activate based on context
+## Skills (18) — Auto-activate based on context
 
 | Skill | Triggers When |
 |---|---|
@@ -193,6 +200,7 @@ claude --plugin-dir /path/to/unleashed-mail-plugin   # session-scoped, no market
 | `gemini-review` | Plan/debug review via Antigravity CLI (`agy`); routes through the shared [`scripts/pty-capture.py`](scripts/pty-capture.py) PTY wrapper for guaranteed non-TTY output capture |
 | `codex-review` | Read-only Codex CLI review for plans, debug, and post-implementation audits; routes through the same shared [`scripts/pty-capture.py`](scripts/pty-capture.py) wrapper so output is never lost when piped/backgrounded |
 | `create-feature-plan` | Scaffolds a `FEATURE_NAME_PLAN.md` under `docs/planning/` using the project template |
+| `review-synthesis` | Combines the two captured plan-review transcripts (gemini + codex) into one auditable **Combined verdict** block; read-only, run after both reviews and before implementation |
 
 ## Commands (3)
 
