@@ -344,6 +344,12 @@ assert_contains "quoted scheme 'My build app' archive -> other" "$(. "$_DIR/lib/
 assert_contains "quoted scheme 'Nightly build' test -> test" "$(. "$_DIR/lib/log.sh"; build_class 'xcodebuild -scheme "Nightly build" test')" 'xcodebuild-test'
 assert_contains "quoted derivedDataPath '/tmp/test dir' build -> build" "$(. "$_DIR/lib/log.sh"; build_class 'xcodebuild -derivedDataPath "/tmp/test dir" build')" 'xcodebuild-build'
 
+# 25g. Compound shell forms (operators/punctuation) still classify by the xcodebuild action (codex PR).
+assert_contains "compound: build; echo -> build" "$(. "$_DIR/lib/log.sh"; build_class 'xcodebuild build; echo done')" 'xcodebuild-build'
+assert_contains "compound: if test; then -> test" "$(. "$_DIR/lib/log.sh"; build_class 'if xcodebuild test; then echo ok; fi')" 'xcodebuild-test'
+assert_contains "compound: (xcodebuild test) -> test" "$(. "$_DIR/lib/log.sh"; build_class '(xcodebuild test)')" 'xcodebuild-test'
+assert_contains "compound: build && echo -> build" "$(. "$_DIR/lib/log.sh"; build_class 'xcodebuild build && echo')" 'xcodebuild-build'
+
 # 26. Log rotation: 600 lines -> capped to 250 after the next write.
 ROT="$CLAUDE_PLUGIN_DATA/logs/error-log.jsonl"
 rm -f "$ROT" 2>/dev/null

@@ -77,9 +77,14 @@ build_class() {
             # that looks like an action (codex PR review). Fall back to a whitespace split if python3
             # is absent or shlex errors (unbalanced quotes) — best-effort, still consistent.
             if command -v python3 >/dev/null 2>&1; then
+                # punctuation_chars=True separates shell operators ( ) ; & | < > so a compound form
+                # like `xcodebuild build; echo` or `(xcodebuild test)` yields a clean `build`/`test`
+                # token (codex PR review). posix=True still groups quoted values into one token.
                 _split="$(printf '%s' "$cmd" | python3 -c 'import shlex, sys
 try:
-    sys.stdout.write("\n".join(shlex.split(sys.stdin.read())))
+    lex = shlex.shlex(sys.stdin.read(), posix=True, punctuation_chars=True)
+    lex.whitespace_split = True
+    sys.stdout.write("\n".join(lex))
 except Exception:
     sys.exit(1)' 2>/dev/null)" || _split=""
             fi
