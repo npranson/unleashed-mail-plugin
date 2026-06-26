@@ -115,16 +115,13 @@ case "$FILE_PATH" in
 esac
 
 # --- COREDEV-2324: write the lint marker for the Stop-gate ---
-# Decouple the FAIL marker from swiftlint (gemini PR #12): ANY failed check
-# (swiftlint errors, try!, as!, token-logging, or the syntax check above) must leave
-# a lint=fail marker so the Stop-gate sees it. Write lint=pass ONLY when swiftlint
-# actually ran clean — never fake a "pass" when the linter is absent.
-if command -v marker_write >/dev/null 2>&1; then
-    if [ "$EXIT_CODE" -ne 0 ]; then
-        marker_write lint fail
-    elif command -v swiftlint >/dev/null 2>&1; then
-        marker_write lint pass
-    fi
+# This is a per-FILE PostToolUse hook, so it must NOT write lint=pass: one clean file
+# can't prove the whole repo lints, and overwriting a global fail would let the
+# Stop-gate be bypassed (gemini + codex PR #12). Write only lint=fail — fail-closed is
+# the safe default for a gate. The pass/clear comes from a full-project lint (the
+# pre-commit build marker, which clears the sentinel) or when HEAD/TTL moves on.
+if command -v marker_write >/dev/null 2>&1 && [ "$EXIT_CODE" -ne 0 ]; then
+    marker_write lint fail
 fi
 
 exit $EXIT_CODE

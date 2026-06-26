@@ -27,9 +27,16 @@ marker_dir() {
 # exists. It emits a hash, never any path-derived characters, so the absolute path
 # is never exposed (a `tr`-slug fallback would leak e.g. the username).
 _marker_bash_hash() {
-    local s="$1" i=0 len="${#1}" h=5381 c=0
+    local s="$1" i=0 len="${#1}" h=5381 c=0 ch=""
     while [ "$i" -lt "$len" ]; do
-        c="$(printf '%d' "'${s:$i:1}" 2>/dev/null)"
+        ch="${s:$i:1}"
+        # A single-quote char makes `printf '%d' "'${ch}"` the invalid constant "''"
+        # which fails to 0; handle it explicitly so paths with quotes still hash (PR #12).
+        if [ "$ch" = "'" ]; then
+            c=39
+        else
+            c="$(printf '%d' "'$ch" 2>/dev/null)"
+        fi
         h=$(( (h * 33 + ${c:-0}) & 0xffffffff ))
         i=$(( i + 1 ))
     done
@@ -85,13 +92,24 @@ marker_write() {
     printf '{"status":"%s","kind":"%s","ts":"%s","commit":"%s","repo_hash":"%s"}\n' \
         "$status" "$kind" "$ts" "$commit" "$hash" > "$tmp" 2>/dev/null || { rm -f "$tmp" 2>/dev/null; return 0; }
     mv "$tmp" "$path" 2>/dev/null || { rm -f "$tmp" 2>/dev/null; return 0; }
+    # On a pass, clear the Stop-gate's last-blocked sentinel for this repo so a later
+    # regression on the same commit can block again (gemini PR #12).
+    if [ "$status" = "pass" ]; then
+        rm -f "$dir/stop-last-blocked-${hash}" 2>/dev/null || true
+    fi
 }
 
 # Read one string field from a marker file. $1 = kind, $2 = field. Empty if absent.
 marker_field() {
-    local kind="$1" field="$2" path=""
+    local kind="$1" field="$2" path="" line=""
     path="$(marker_path "$kind")"
     [ -f "$path" ] || return 0
+    # Fast path: the marker is a known single-line JSON — parse with bash's built-in
+    # regex to avoid spawning jq/python3 on every call (gemini PR #12, perf).
+    if read -r line < "$path" 2>/dev/null && [[ "$line" =~ \"$field\":\"([^\"]+)\" ]]; then
+        printf '%s' "${BASH_REMATCH[1]}"
+        return 0
+    fi
     if command -v jq >/dev/null 2>&1; then
         jq -r --arg f "$field" '.[$f] // empty' "$path" 2>/dev/null
     elif command -v python3 >/dev/null 2>&1; then

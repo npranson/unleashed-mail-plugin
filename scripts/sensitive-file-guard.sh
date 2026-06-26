@@ -60,33 +60,63 @@ sensitive_category() {
 # during the warn window. Quoted redirection targets with spaces are handled; a
 # quoted cp/mv destination with spaces is a known best-effort gap.
 guard_bash_write_target() {
-    local cmd="$1" cand="" line="" t="" bn=""
-    # Redirection targets: >FILE / >>FILE, quoted or not.
-    while IFS= read -r line; do
-        line="$(printf '%s' "$line" | sed -E 's/^>>?[[:space:]]*//; s/^"//; s/"$//')"
-        [ -n "$line" ] && cand="${cand}
+    local cmd="$1" cand="" seg="" line="" t="" bn="" verb="" tok="" last=""
+    local -a toks=()
+    # Split on shell separators so a chained command (`cp a b && git diff`) is parsed
+    # per-segment, not by a single trailing token (codex/gemini PR #12). Best-effort:
+    # the Bash path is a warn-first speed-bump — the robust guard is the Edit/Write
+    # file_path path; arbitrary shell can always evade a textual heuristic.
+    while IFS= read -r seg; do
+        [ -n "$seg" ] || continue
+        # Redirection targets within the segment: >FILE / >>FILE (quoted or not).
+        while IFS= read -r line; do
+            line="$(printf '%s' "$line" | sed -E 's/^>>?[[:space:]]*//; s/^"//; s/"$//')"
+            [ -n "$line" ] && cand="${cand}
 ${line}"
-    done < <(printf '%s\n' "$cmd" | grep -oE '>>?[[:space:]]*("[^"]+"|[^"[:space:]|&;]+)' 2>/dev/null)
-    # sed -i / cp / mv / install destination = last whitespace token (best-effort).
-    if printf '%s' "$cmd" | grep -qE '(^|[[:space:];|&])(sed[[:space:]]+-i|cp|mv|install)([[:space:]]|$)' 2>/dev/null; then
-        cand="${cand}
-$(printf '%s' "$cmd" | awk '{print $NF}' | sed -E 's/^"//; s/"$//')"
-    fi
-    # tee target(s).
-    if printf '%s' "$cmd" | grep -qE '(^|[[:space:];|&])tee([[:space:]]|$)' 2>/dev/null; then
-        cand="${cand}
-$(printf '%s' "$cmd" | sed -E 's/.*tee[[:space:]]+(-a[[:space:]]+)?//; s/[[:space:]].*$//; s/^"//; s/"$//')"
-    fi
-    local IFS='
-'
-    for t in $cand; do
+        done < <(printf '%s\n' "$seg" | grep -oE '>>?[[:space:]]*("[^"]+"|[^"[:space:]|&;]+)' 2>/dev/null)
+        read -ra toks <<<"$seg"
+        verb="${toks[0]:-}"
+        case "$verb" in
+            cp|install)
+                # destination = last non-flag operand.
+                last=""
+                for tok in "${toks[@]}"; do
+                    case "$tok" in -*) ;; *) last="$tok" ;; esac
+                done
+                [ -n "$last" ] && cand="${cand}
+${last}"
+                ;;
+            mv|rename)
+                # a rename can modify/remove the SOURCE too — check every non-flag operand.
+                for tok in "${toks[@]:1}"; do
+                    case "$tok" in -*) ;; *) cand="${cand}
+${tok}" ;; esac
+                done
+                ;;
+            sed)
+                if printf '%s' "$seg" | grep -qE 'sed[[:space:]]+-i' 2>/dev/null; then
+                    cand="${cand}
+${toks[*]: -1}"
+                fi
+                ;;
+            tee)
+                cand="${cand}
+$(printf '%s' "$seg" | sed -E 's/^[[:space:]]*tee[[:space:]]+(-a[[:space:]]+)?//; s/[[:space:]].*$//; s/^"//; s/"$//')"
+                ;;
+        esac
+    done < <(printf '%s\n' "$cmd" | sed -E 's/(\&\&|\|\||[;&|])/\n/g')
+    # Evaluate candidates by basename (while-read avoids globbing on a `*` operand).
+    while IFS= read -r t; do
         [ -n "$t" ] || continue
+        t="${t#\"}"; t="${t%\"}"
         bn="${t##*/}"
         if is_sensitive_basename "$bn"; then
             printf '%s' "$bn"
             return 0
         fi
-    done
+    done <<EOF
+$cand
+EOF
     return 0
 }
 

@@ -108,6 +108,26 @@ OUT="$(printf '{"tool_name":"Bash","tool_input":{"command":"echo x >\\"%s\\""}}'
     | UNLEASHED_SENSITIVE_GUARD_MODE=ask bash "$GUARD" 2>/dev/null)"
 assert_contains "quoted redirect -> ask" "$OUT" '"permissionDecision":"ask"'
 
+# 7b. Chained write (a later command would defeat a naive $NF) -> still ask.
+OUT="$(printf '{"tool_name":"Bash","tool_input":{"command":"cp template.swift KeychainManager.swift && git diff"}}' \
+    | UNLEASHED_SENSITIVE_GUARD_MODE=ask bash "$GUARD" 2>/dev/null)"
+assert_contains "chained cp dest -> ask" "$OUT" '"permissionDecision":"ask"'
+
+# 7c. mv renames a protected file AWAY (source is modified/removed) -> ask.
+OUT="$(printf '{"tool_name":"Bash","tool_input":{"command":"mv KeychainManager.swift backup.swift"}}' \
+    | UNLEASHED_SENSITIVE_GUARD_MODE=ask bash "$GUARD" 2>/dev/null)"
+assert_contains "mv source -> ask" "$OUT" '"permissionDecision":"ask"'
+
+# 7d. Trailing flag after the destination -> still ask (flag stripped, dest found).
+OUT="$(printf '{"tool_name":"Bash","tool_input":{"command":"cp template.swift KeychainManager.swift -v"}}' \
+    | UNLEASHED_SENSITIVE_GUARD_MODE=ask bash "$GUARD" 2>/dev/null)"
+assert_contains "trailing flag -> ask" "$OUT" '"permissionDecision":"ask"'
+
+# 7e. Benign mv (no signature) -> no decision.
+OUT="$(printf '{"tool_name":"Bash","tool_input":{"command":"mv a.swift b.swift"}}' \
+    | UNLEASHED_SENSITIVE_GUARD_MODE=ask bash "$GUARD" 2>/dev/null)"
+assert_empty "benign mv -> no decision" "$OUT"
+
 # 8. Warn mode -> systemMessage advisory, NO permissionDecision.
 OUT="$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s"}}' "$KEYCHAIN" \
     | UNLEASHED_SENSITIVE_GUARD_MODE=warn bash "$GUARD" 2>/dev/null)"
