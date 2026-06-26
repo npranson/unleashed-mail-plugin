@@ -39,7 +39,9 @@ MCP_JSON="$ROOT/.mcp.json"
 # plugin.json is the comparison anchor.
 PLUGIN_VERSION="$(grep -m1 -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' "$PLUGIN_JSON" 2>/dev/null \
                   | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
-README_H1="$(grep -m1 -oE 'Plugin v[0-9]+\.[0-9]+\.[0-9]+' "$README" 2>/dev/null | sed 's/Plugin v//' || true)"
+# Anchor to the first Markdown H1 heading so an unrelated "Plugin vX.Y.Z" elsewhere in
+# the README can't spoof the H1 drift gate (codex PR #11).
+README_H1="$(grep -m1 -E '^#[[:space:]].*Plugin v[0-9]+\.[0-9]+\.[0-9]+' "$README" 2>/dev/null | grep -oE 'Plugin v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's/Plugin v//' || true)"
 README_WHATSNEW="$(grep -m1 -oE '^### v[0-9]+\.[0-9]+\.[0-9]+' "$README" 2>/dev/null | sed 's/^### v//' || true)"
 
 [[ -n "$PLUGIN_VERSION"  ]] || fail "could not parse version from plugin.json"

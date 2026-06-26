@@ -54,19 +54,18 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
         m = TOP_KEY.match(line)
         if m and not line[:1].isspace():
             key, val = m.group(1), m.group(2).strip()
-            # Quoted value: take it literally (a `#` inside quotes is NOT a comment) and
-            # strip the surrounding quotes so `name: "my-agent"` validates as kebab.
-            if len(val) >= 2 and (
-                (val.startswith('"') and val.endswith('"'))
-                or (val.startswith("'") and val.endswith("'"))
-            ):
-                val = val[1:-1].strip()
+            # Quoted value: extract up to the matching closing quote, dropping any
+            # trailing ` # comment` (a `#` inside the quotes is literal). This must
+            # handle `name: "x" # note`, where the value no longer *ends* with a quote
+            # (codex/gemini PR #11). Unquoted: strip a YAML comment so `description: #
+            # TODO` reads as empty and `name: good-agent # note` validates.
+            if val[:1] in ('"', "'"):
+                end = val.find(val[0], 1)
+                if end != -1:
+                    val = val[1:end].strip()
             elif val.startswith("#"):
-                # The whole value is a YAML comment -> empty, so `description: # TODO`
-                # is correctly flagged as missing (codex PR #11).
                 val = ""
             else:
-                # Strip a trailing ` # comment` so `name: good-agent # note` validates.
                 hashpos = val.find(" #")
                 if hashpos != -1:
                     val = val[:hashpos].strip()

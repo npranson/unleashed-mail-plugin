@@ -84,8 +84,13 @@ fi
 # Warn mode here (advisory, never blocks the commit); CI runs these in --strict.
 if [ "$HAS_XCODEPROJ" = false ]; then
     # Resolve via the repo root so a symlinked git hook ($0 = the symlink) still finds
-    # the validators (gemini PR #11); fall back to the script's own dir.
-    SCRIPTS_DIR="$(git rev-parse --show-toplevel 2>/dev/null || dirname "$0")/scripts"
+    # the validators (gemini PR #11); fall back to the script's own dir (NOT
+    # dirname+/scripts, which would double to scripts/scripts).
+    if REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+        SCRIPTS_DIR="$REPO_ROOT/scripts"
+    else
+        SCRIPTS_DIR="$(dirname "$0")"
+    fi
     if [ -f "$SCRIPTS_DIR/validate-version-sync.sh" ]; then
         echo "🧩 Validating plugin version sync..."
         VERSION_SYNC_ENFORCE=warn bash "$SCRIPTS_DIR/validate-version-sync.sh" || true
