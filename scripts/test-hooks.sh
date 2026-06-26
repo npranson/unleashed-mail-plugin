@@ -358,6 +358,11 @@ if is_valid_json "$(cat "$SNAP" 2>/dev/null)"; then ok; else fail "snapshot -> v
 assert_contains "snapshot has ticket" "$(cat "$SNAP" 2>/dev/null)" '"ticket"'
 assert_not_contains "snapshot no raw branch suffix" "$(cat "$SNAP" 2>/dev/null)" 'observability'
 
+# 28b. Plan resolves from the REPO ROOT even when PreCompact fires from a subdirectory (codex PR).
+rm -f "$SNAP" 2>/dev/null
+( cd "$_DIR" && printf '{}' | bash "$PRECOMPACT" 2>/dev/null )   # cwd = scripts/ (a repo subdir)
+assert_not_contains "plan found from repo root (cwd=subdir)" "$(cat "$SNAP" 2>/dev/null)" '"plan":"unknown"'
+
 # 29. Restore on source=compact within 10 min -> additionalContext + snapshot deleted.
 OUT="$(printf '{"source":"compact"}' | bash "$SESSION_RESTORE" 2>/dev/null)"
 assert_contains "restore -> additionalContext" "$OUT" '"additionalContext"'

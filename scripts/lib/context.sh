@@ -23,13 +23,17 @@
 context_base()        { printf '%s' "${CLAUDE_PLUGIN_DATA:-${HOME:-}/.claude/unleashed-mail}"; }
 context_state_dir()   { printf '%s/.state' "$(context_base)"; }
 
-# 12-hex hash of the repo root (or $PWD when not in a repo) — the per-checkout discriminator.
-context_repo_hash() {
+# The repo root (or $PWD when not in a repo). Used both as the per-checkout discriminator AND to
+# resolve repo-relative paths (e.g. docs/planning) even when the session cwd is a subdirectory.
+context_repo_root() {
     local root=""
     root="$(git rev-parse --show-toplevel 2>/dev/null)" || root=""
     [ -n "$root" ] || root="$PWD"
-    _context_hash "$root"
+    printf '%s' "$root"
 }
+
+# 12-hex hash of the repo root — the per-checkout discriminator.
+context_repo_hash() { _context_hash "$(context_repo_root)"; }
 
 # Per-checkout reviews dir + snapshot file (both keyed by the repo hash).
 context_reviews_dir()   { printf '%s/reviews/%s' "$(context_base)" "$(context_repo_hash)"; }

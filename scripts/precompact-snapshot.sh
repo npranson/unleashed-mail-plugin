@@ -22,12 +22,15 @@ BRANCH="$(context_branch)"
 TICKET="$(context_ticket "$BRANCH")"      # COREDEV-NNNN / vX.Y.Z / 1.0X / unknown
 SLUG="$(context_branch_slug "$BRANCH")"   # safe token or 12-hex hash — never raw branch
 
-# Newest plan doc (repo-relative). stderr-clean even when docs/planning exists but holds
-# no *_PLAN.md (the literal glob would otherwise make `ls` error). Redact + cap defensively.
+# Newest plan doc, resolved from the REPO ROOT (not the session cwd, which may be a subdirectory)
+# so it's found wherever the hook fires (codex PR review), stored repo-relative. stderr-clean even
+# when docs/planning exists but holds no *_PLAN.md (the literal glob would otherwise make `ls`
+# error). Redact + cap defensively.
 PLAN="unknown"
-if [ -d docs/planning ]; then
-    _plan="$(ls -t docs/planning/*_PLAN.md 2>/dev/null | head -1)"
-    [ -n "$_plan" ] && PLAN="$_plan"
+_root="$(context_repo_root)"
+if [ -d "$_root/docs/planning" ]; then
+    _plan="$(ls -t "$_root"/docs/planning/*_PLAN.md 2>/dev/null | head -1)"
+    [ -n "$_plan" ] && PLAN="${_plan#"$_root"/}"
 fi
 PLAN="$(hook_redact_pii "$PLAN")"
 PLAN="${PLAN:0:200}"   # bash substring (char-aware, no cut subprocess / BSD `cut -c` quirk)
