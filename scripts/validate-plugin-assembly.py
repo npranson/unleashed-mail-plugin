@@ -63,6 +63,10 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
                 end = val.find(val[0], 1)
                 if end != -1:
                     val = val[1:end].strip()
+                else:
+                    # Unterminated quote (`description: "unfinished`) is malformed YAML;
+                    # treat as empty so the required-field check flags it (codex PR #11).
+                    val = ""
             elif val.startswith("#"):
                 val = ""
             else:
