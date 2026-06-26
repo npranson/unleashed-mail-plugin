@@ -54,12 +54,22 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
         m = TOP_KEY.match(line)
         if m and not line[:1].isspace():
             key, val = m.group(1), m.group(2).strip()
-            # Strip surrounding quotes so `name: "my-agent"` validates as kebab (PR #11).
+            # Quoted value: take it literally (a `#` inside quotes is NOT a comment) and
+            # strip the surrounding quotes so `name: "my-agent"` validates as kebab.
             if len(val) >= 2 and (
                 (val.startswith('"') and val.endswith('"'))
                 or (val.startswith("'") and val.endswith("'"))
             ):
                 val = val[1:-1].strip()
+            elif val.startswith("#"):
+                # The whole value is a YAML comment -> empty, so `description: # TODO`
+                # is correctly flagged as missing (codex PR #11).
+                val = ""
+            else:
+                # Strip a trailing ` # comment` so `name: good-agent # note` validates.
+                hashpos = val.find(" #")
+                if hashpos != -1:
+                    val = val[:hashpos].strip()
             fm[key] = val  # may be "", ">", "|", or an inline value
             current = key
         elif current is not None and line.strip() and line[:1].isspace():

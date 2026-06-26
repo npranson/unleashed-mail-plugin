@@ -74,15 +74,23 @@ check_count "agents"   "$DISK_AGENTS"
 check_count "skills"   "$DISK_SKILLS"
 check_count "commands" "$DISK_COMMANDS"
 
-# MCP server token is optional (allow plural "servers"); validate against .mcp.json when present.
+# MCP-server count: whenever .mcp.json is part of the plugin, the README token must
+# be present AND match — a dropped token is real drift (codex PR #11). utf-8-sig is
+# BOM-safe (gemini PR #11). (allow the optional plural "servers")
 README_MCP="$(grep -oE '[0-9]+ MCP servers?' <<<"$COUNTS_LINE" | head -1 | grep -oE '^[0-9]+' || true)"
-if [[ -n "$README_MCP" ]]; then
-  if [[ -f "$MCP_JSON" ]] && command -v python3 >/dev/null 2>&1; then
-    DISK_MCP="$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1], encoding="utf-8")).get("mcpServers",{})))' "$MCP_JSON" 2>/dev/null || echo "")"
-    [[ -n "$DISK_MCP" ]] || fail ".mcp.json present but unparseable for MCP-server count"
-    [[ -z "$DISK_MCP" || "$README_MCP" == "$DISK_MCP" ]] \
-      || fail "count drift: README says $README_MCP MCP server(s), .mcp.json defines $DISK_MCP"
+if [[ -f "$MCP_JSON" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    DISK_MCP="$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1], encoding="utf-8-sig")).get("mcpServers",{})))' "$MCP_JSON" 2>/dev/null || echo "")"
+    if [[ -z "$DISK_MCP" ]]; then
+      fail ".mcp.json present but unparseable for MCP-server count"
+    elif [[ "$DISK_MCP" -gt 0 && -z "$README_MCP" ]]; then
+      fail "count drift: .mcp.json defines $DISK_MCP MCP server(s) but the README counts line has no 'N MCP server' token"
+    elif [[ -n "$README_MCP" && "$README_MCP" != "$DISK_MCP" ]]; then
+      fail "count drift: README says $README_MCP MCP server(s), .mcp.json defines $DISK_MCP"
+    fi
   fi
+elif [[ -n "$README_MCP" && "$README_MCP" != "0" ]]; then
+  fail "count drift: README says $README_MCP MCP server(s), but .mcp.json is missing"
 fi
 
 # --- result -----------------------------------------------------------------

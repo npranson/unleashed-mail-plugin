@@ -83,7 +83,9 @@ fi
 # Runs when NOT in the Xcode app project, i.e. in the unleashed-mail plugin repo.
 # Warn mode here (advisory, never blocks the commit); CI runs these in --strict.
 if [ "$HAS_XCODEPROJ" = false ]; then
-    SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+    # Resolve via the repo root so a symlinked git hook ($0 = the symlink) still finds
+    # the validators (gemini PR #11); fall back to the script's own dir.
+    SCRIPTS_DIR="$(git rev-parse --show-toplevel 2>/dev/null || dirname "$0")/scripts"
     if [ -f "$SCRIPTS_DIR/validate-version-sync.sh" ]; then
         echo "🧩 Validating plugin version sync..."
         VERSION_SYNC_ENFORCE=warn bash "$SCRIPTS_DIR/validate-version-sync.sh" || true
