@@ -15,6 +15,41 @@ from the host app's `MAJOR.MINORRELEASE.YYMMBB` scheme in `docs/VERSIONING.md`).
 
 _Nothing yet — add new changes here._
 
+## [2.3.1] — 2026-06-26
+
+### Added
+- **Plan-review synthesis skill** (`/unleashed-mail:review-synthesis`,
+  `skills/review-synthesis/SKILL.md`) — a read-only skill that combines the two captured
+  plan-review transcripts (gemini → `/tmp/agy-out.txt`, codex → `/tmp/codex-out.txt`) into one
+  auditable **Combined verdict** block (`APPROVE | APPROVE_WITH_NOTES | REQUEST_CHANGES |
+  DISAGREEMENT`; normalizes the CLI's `NITS → NOTES`; references findings by location/topic, never
+  echoing PII; surfaces a one-approve / one-reject split as `DISAGREEMENT` rather than averaging; a
+  missing/empty transcript can never claim `APPROVE`). Kept **distinct** from the code-review
+  `synthesize_review` MCP enum (`APPROVE_WITH_SUGGESTIONS` / `NEEDS_DISCUSSION`). Wired into
+  `AGENT_CONTRACTS.md §2` as plan-review step 3a, with one-line pointers in `gemini-review` /
+  `codex-review`.
+- **Reviewer Output-Contract status enum** — the four specialist reviewers (`security`,
+  `concurrency`, `ux-perf`, `accessibility`) now emit a `Status: COMPLETE | BLOCKED | PARTIAL` line
+  (immediately before their JSON findings array, which stays the final block) that is **orthogonal**
+  to the findings, so a reviewer that *couldn't run* returns `BLOCKED` + `[]` instead of an empty
+  `[]` that reads as a clean pass.
+- **Decision-support option tables** in `/unleashed-mail:brainstorm` — a design-phase **Step 4b**
+  that, only on a genuine architectural fork, presents 2–4 options in a comparison table (with a
+  mandatory **Parity-Impact** column, S/M/L effort, a `(Recommended)` row, no emoji) and calls
+  `AskUserQuestion` to record the chosen fork before the plan document. `AskUserQuestion` added to the
+  command's `allowed-tools`.
+
+### Changed
+- **`swift-reviewer` Step 5 consumes the reviewer status.** `BLOCKED` routes to NEEDS DISCUSSION as a
+  Needs-Confirmation uncertainty — **not** a `category: verification` blocker (which is
+  confirmed-by-construction → REQUEST CHANGES); `PARTIAL` keeps the completed-scope findings and
+  records a non-gating `verification` warning (escalated to NEEDS DISCUSSION if a Remaining file is
+  structural). No synthesizer (Python) change. `skills/agent-orchestration/SKILL.md` handoff and
+  `AGENT_CONTRACTS.md §5` updated to match.
+- **Plugin bumped to 2.3.1.** `README.md` (H1, the `20 agents · 18 skills · 3 commands · 1 MCP
+  server` counts, What's-New, architecture skill list, and Skills table) and
+  `.claude-plugin/marketplace.json` reflect the new `review-synthesis` skill (skills 17 → 18).
+
 ## [2.3.0] — 2026-06-25
 
 ### Added

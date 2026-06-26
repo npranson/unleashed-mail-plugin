@@ -369,9 +369,10 @@ before merging.
 
 #### Read each reviewer's Output Contract status first
 
-Every specialist reviewer ends with a `## Output Contract` status — `COMPLETE | BLOCKED |
-PARTIAL` — that is **orthogonal** to its findings: it reports whether the review *finished*,
-not whether the code is OK. Read it **before** you trust the `[]`:
+Every specialist reviewer emits an Output Contract `Status:` line — `COMPLETE | BLOCKED |
+PARTIAL` — just before its JSON findings array. It is **orthogonal** to the findings: it
+reports whether the review *finished*, not whether the code is OK. Read it **before** you trust
+the `[]`:
 
 - **COMPLETE** → the JSON array is authoritative; proceed normally.
 - **BLOCKED** → the reviewer *could not run* (missing files, unreadable diff, tooling

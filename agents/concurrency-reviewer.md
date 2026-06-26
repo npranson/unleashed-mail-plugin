@@ -325,11 +325,13 @@ finding; emit `[]` if clean. JSON escaping handles pipes, backticks, and newline
 
 **Return status:** COMPLETE | BLOCKED | PARTIAL
 
-State this status on the **final line** of your report, **after** the JSON findings array. The
-orchestrator reads the status **first, then** the array — so a reviewer that *couldn't run* returns
-`BLOCKED` + `[]` instead of an empty `[]` that reads as a clean pass. Status (did-the-review-finish) is
-orthogonal to the findings verdict (is-the-code-OK).
+Emit this as a `Status:` line **immediately before** your JSON findings array — keep the fenced `json`
+array the **final block** of your report (per *Structured Findings* above), so it stays trivially
+parseable and matches the handoff template in `skills/agent-orchestration/SKILL.md`. The orchestrator
+reads the status **first, then** the array — so a reviewer that *couldn't run* returns `BLOCKED` + `[]`
+instead of an empty `[]` that reads as a clean pass. Status (did-the-review-finish) is orthogonal to the
+findings verdict (is-the-code-OK).
 
-- **COMPLETE** — review ran fully; the JSON findings array above is authoritative (`[]` if clean).
+- **COMPLETE** — review ran fully; the JSON findings array is authoritative (`[]` if clean).
 - **BLOCKED** — could not review. Required: **Blocker Description** · **What Was Attempted**. Emit `[]` for findings.
 - **PARTIAL** — reviewed some files. Required: **Completed** · **Remaining** (name any structural files not reached; tie to `scope: structural-pipeline`) · **Confidence: [0-100]**. Findings cover ONLY the completed scope.
