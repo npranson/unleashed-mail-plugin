@@ -146,10 +146,21 @@ def main() -> int:
             problems.append(f"{m.relative_to(root)}: missing")
             continue
         try:
-            json.loads(m.read_text(encoding="utf-8-sig"))
+            data = json.loads(m.read_text(encoding="utf-8-sig"))
             parsed += 1
         except (OSError, ValueError) as e:
             problems.append(f"{m.relative_to(root)}: invalid JSON ({e})")
+            continue
+        # The plugin manifest must carry its required metadata, not merely be valid
+        # JSON (plan Item 2; codex PR #11). version is also gated by version-sync.
+        if m.name == "plugin.json":
+            if not isinstance(data, dict):
+                problems.append(f"{m.relative_to(root)}: not a JSON object")
+            else:
+                for field in ("name", "version", "description"):
+                    fv = data.get(field)
+                    if not (isinstance(fv, str) and fv.strip()):
+                        problems.append(f"{m.relative_to(root)}: missing/empty required field `{field}`")
     for m in optional_manifests:
         if not m.is_file():
             continue
