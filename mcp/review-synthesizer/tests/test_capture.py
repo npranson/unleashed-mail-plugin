@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -162,18 +163,17 @@ class TestSelectRound(unittest.TestCase):
 
 
 class TestRoundSelection(unittest.TestCase):
-    def test_completed_round_does_not_auto_advance(self):
-        # A completed round must NOT auto-advance — round boundaries are an explicit, orchestrator-
-        # set signal (UNLEASHED_REVIEW_ROUND), not inferred (codex PR review).
+    def test_within_cycle_window_stays_same_round(self):
+        # A cycle's four reviewers (and an immediate duplicate) land within the window -> same round.
         with tempfile.TemporaryDirectory() as root:
             slug = "COREDEV-2325"
             for a in C.VALID_AGENTS:
                 self.assertEqual(C.capture(root, slug, a, fenced([raw()])), "written")
             self.assertEqual(C.select_round(root, slug), 1)
 
-    def test_duplicate_after_complete_round_is_skipped_not_advanced(self):
-        # A duplicate SubagentStop after the round is complete must be dedup-skipped, NOT advanced
-        # into a new round where it would pollute / be mixed with a real re-review (codex PR review).
+    def test_duplicate_within_window_is_skipped_not_advanced(self):
+        # A duplicate SubagentStop (arrives within seconds) must be dedup-skipped, NOT advanced into
+        # a new round where it would pollute a real re-review (codex PR review).
         with tempfile.TemporaryDirectory() as root:
             slug = "COREDEV-2325"
             for a in C.VALID_AGENTS:
@@ -181,8 +181,23 @@ class TestRoundSelection(unittest.TestCase):
             self.assertEqual(C.capture(root, slug, "security-reviewer", fenced([raw()])), "skipped")
             self.assertFalse(os.path.isdir(os.path.join(root, slug, "round-2")))
 
+    def test_capture_after_cycle_window_starts_new_round(self):
+        # A re-review cycle arrives long after the prior round -> a fresh round (persisted mtime
+        # signal), so its findings aren't dedup-skipped into the stale round (codex PR review).
+        with tempfile.TemporaryDirectory() as root:
+            slug = "COREDEV-2325"
+            for a in C.VALID_AGENTS:
+                C.capture(root, slug, a, fenced([raw()]))
+            rd = os.path.join(root, slug, "round-1")
+            old = time.time() - (C.CYCLE_WINDOW_SEC + 60)
+            for f in os.listdir(rd):
+                os.utime(os.path.join(rd, f), (old, old))
+            self.assertEqual(C.select_round(root, slug), 2)
+            self.assertEqual(C.capture(root, slug, "security-reviewer", fenced([raw()])), "written")
+            self.assertTrue(os.path.isfile(os.path.join(root, slug, "round-2", "security-reviewer.json")))
+
     def test_explicit_round_override_starts_fresh_round(self):
-        # The orchestrator bumps UNLEASHED_REVIEW_ROUND for a re-review cycle -> fresh round.
+        # The orchestrator can still force a round deterministically via UNLEASHED_REVIEW_ROUND.
         with tempfile.TemporaryDirectory() as root:
             slug = "COREDEV-2325"
             C.capture(root, slug, "security-reviewer", fenced([raw()]))

@@ -26,6 +26,7 @@ import json
 import os
 import re
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -156,15 +157,28 @@ def safe_join(capture_root: str, slug: str, round_n: int, agent: str) -> str:
     return dest
 
 
-def select_round(capture_root: str, slug: str) -> int:
-    """The target round comes from an EXPLICIT signal, never inferred: `UNLEASHED_REVIEW_ROUND` if
-    set to a positive int — the orchestrator sets this per review cycle so a re-review after fixes
-    lands in a fresh round — else the highest existing `round-N` under `<root>/<slug>`, else 1.
+CYCLE_WINDOW_SEC = 600  # captures within this of the latest round's newest file belong to the same
+                        # review cycle; a later capture starts a new round. Override via env.
 
-    Round boundaries are the orchestrator's to set, not this producer hook's to guess: auto-
-    advancing on a "completed" round was removed because a stray/duplicate SubagentStop arriving
-    after the final reviewer would advance into the next round and pollute it (codex PR review).
-    Within a round, dedup (`is_final_capture`) makes duplicates idempotent."""
+
+def _cycle_window_sec() -> int:
+    raw = os.environ.get("UNLEASHED_REVIEW_CYCLE_SEC", "")
+    return int(raw) if raw.isdigit() and int(raw) > 0 else CYCLE_WINDOW_SEC
+
+
+def select_round(capture_root: str, slug: str) -> int:
+    """The target round. Deterministic override first: `UNLEASHED_REVIEW_ROUND` (a positive int the
+    orchestrator may set per cycle). Otherwise derive it from a PERSISTED SIGNAL — the mtime of the
+    newest capture in the highest existing round (codex PR review):
+
+      * within the cycle window of that newest capture -> the SAME round. A review cycle's four
+        reviewers run in parallel (seconds–minutes apart) and a duplicate SubagentStop arrives
+        within seconds, so both stay in the round (the duplicate is then dedup-skipped);
+      * past the window -> a NEW round, because a later capture is a fresh re-review cycle whose
+        findings must not be dedup-skipped into the stale round.
+
+    Defaults to 1 when there is no prior round. This avoids both relying on an unset env var and the
+    stray-duplicate pollution that an unconditional 'completed round' auto-advance caused."""
     override = os.environ.get("UNLEASHED_REVIEW_ROUND", "")
     if override.isdigit() and int(override) > 0:
         return int(override)
@@ -177,7 +191,21 @@ def select_round(capture_root: str, slug: str) -> int:
                 highest = max(highest, int(m.group(1)))
     except OSError:
         pass
-    return highest if highest > 0 else 1
+    if highest == 0:
+        return 1
+    newest = 0.0
+    round_dir = os.path.join(base, "round-%d" % highest)
+    try:
+        for f in os.listdir(round_dir):
+            try:
+                newest = max(newest, os.path.getmtime(os.path.join(round_dir, f)))
+            except OSError:
+                pass
+    except OSError:
+        pass
+    if newest > 0.0 and (time.time() - newest) > _cycle_window_sec():
+        return highest + 1
+    return highest
 
 
 def is_final_capture(path: str) -> bool:
