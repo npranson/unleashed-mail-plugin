@@ -211,6 +211,18 @@ class TestRoundSelection(unittest.TestCase):
             with open(dest, encoding="utf-8") as fh:
                 self.assertEqual(len(json.load(fh)), 1)
 
+    def test_reused_slot_preserves_original_id_for_dedup(self):
+        # After a rerun reuses an empty slot, a delayed duplicate of the ORIGINAL subagent must still
+        # be recognised (the .agentid sidecar accumulates ids, never forgets one) and skipped — not
+        # advanced into round-2 with the stale empty capture (codex PR review).
+        with tempfile.TemporaryDirectory() as root:
+            slug = "COREDEV-2325"
+            C.capture(root, slug, "security-reviewer", fenced([]), "id1")       # empty slot
+            C.capture(root, slug, "security-reviewer", fenced([raw()]), "id2")  # rerun reuses round-1
+            self.assertEqual(
+                C.capture(root, slug, "security-reviewer", fenced([]), "id1"), "skipped")
+            self.assertFalse(os.path.isdir(os.path.join(root, slug, "round-2")))
+
     def test_delayed_duplicate_skipped_after_round_advanced(self):
         # A duplicate of cycle-1's reviewer arriving AFTER a re-review opened round-2 must still be
         # recognised (its id was seen in round-1) and skipped — not written into a new round-3 with

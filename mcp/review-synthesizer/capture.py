@@ -160,18 +160,32 @@ def _agentid_path(round_dir: str, agent: str) -> str:
     return os.path.join(round_dir, agent + ".agentid")
 
 
-def _read_agentid(round_dir: str, agent: str) -> str:
-    """The subagent id recorded alongside this agent's capture in `round_dir`, or "" if none."""
+def _read_agentids(round_dir: str, agent: str) -> "set[str]":
+    """The set of subagent ids recorded for this agent's slot in `round_dir`. A slot may be REUSED
+    (a rerun overwrites an empty/bad capture), so the sidecar ACCUMULATES every id that has written
+    it (one per line) — overwriting it would forget a prior id and miss a later duplicate."""
     try:
         with open(_agentid_path(round_dir, agent), encoding="utf-8") as fh:
-            return fh.read().strip()
+            return {ln.strip() for ln in fh if ln.strip()}
     except OSError:
-        return ""
+        return set()
+
+
+def _add_agentid(round_dir: str, agent: str, agent_id: str) -> None:
+    """Record `agent_id` for this slot WITHOUT dropping ids already there (codex PR review)."""
+    ids = _read_agentids(round_dir, agent)
+    ids.add(agent_id)
+    try:
+        with open(_agentid_path(round_dir, agent), "w", encoding="utf-8") as fh:
+            fh.write("\n".join(sorted(ids)) + "\n")
+    except OSError:
+        pass
 
 
 def _seen_agent_ids(base: str, agent: str) -> "set[str]":
-    """Every subagent id recorded for `agent` across ALL rounds under `base`, so a duplicate
-    SubagentStop is recognised no matter how many rounds have since opened (codex PR review)."""
+    """Every subagent id ever recorded for `agent` across ALL rounds under `base`, so a duplicate
+    SubagentStop is recognised no matter how many rounds have opened OR how many times a slot was
+    reused since (codex PR review)."""
     seen = set()
     try:
         names = os.listdir(base)
@@ -179,9 +193,7 @@ def _seen_agent_ids(base: str, agent: str) -> "set[str]":
         return seen
     for name in names:
         if re.match(r"round-(\d+)$", name):
-            aid = _read_agentid(os.path.join(base, name), agent)
-            if aid:
-                seen.add(aid)
+            seen |= _read_agentids(os.path.join(base, name), agent)
     return seen
 
 
@@ -274,14 +286,11 @@ def capture(capture_root: str, slug: str, agent: str, message: str, agent_id: st
             json.dump(sanitized, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
         os.replace(tmp, dest)
-        # Record the subagent id AFTER the findings land (so a stale id never points at no capture);
-        # best-effort — a missing id just degrades the next round-selection to "same round".
+        # Record the subagent id AFTER the findings land (so a stale id never points at no capture),
+        # ACCUMULATING with any ids already recorded for this slot so a reuse can't forget a prior id
+        # (codex PR review). Best-effort — a missing id just degrades the next selection to "same round".
         if agent_id:
-            try:
-                with open(_agentid_path(dest_dir, agent), "w", encoding="utf-8") as fh:
-                    fh.write(agent_id)
-            except OSError:
-                pass
+            _add_agentid(dest_dir, agent, agent_id)
     except (OSError, TypeError):
         # Never leave a partial tmp on a write/replace failure (gemini PR review). Fail-open:
         # capture is observe-only, so a failed write just returns "invalid"; the hook exits 0.
