@@ -318,6 +318,13 @@ assert_contains "build-for-testing FAIL -> build class" "$(cat "$BUILDLOG" 2>/de
 printf '{"tool_name":"Bash","tool_input":{"command":"xcodebuild build-for-testing -scheme X"}}' | bash "$BUILD_VERIFY" >/dev/null 2>&1
 assert_contains "build-for-testing SUCCESS -> build class" "$(tail -1 "$BUILDLOG" 2>/dev/null)" '"class":"xcodebuild-build","failed":false'
 
+# 25c. `test-without-building` classes as TEST on BOTH failure and success (codex PR — mirror case).
+rm -f "$BUILDLOG" 2>/dev/null
+printf '{"tool_name":"Bash","tool_input":{"command":"xcodebuild test-without-building -scheme X"},"error":"failed"}' | bash "$BUILD_FAIL_LOG" 2>/dev/null
+assert_contains "test-without-building FAIL -> test class" "$(cat "$BUILDLOG" 2>/dev/null)" '"class":"xcodebuild-test","failed":true'
+printf '{"tool_name":"Bash","tool_input":{"command":"xcodebuild test-without-building -scheme X"}}' | bash "$BUILD_VERIFY" >/dev/null 2>&1
+assert_contains "test-without-building SUCCESS -> test class" "$(tail -1 "$BUILDLOG" 2>/dev/null)" '"class":"xcodebuild-test","failed":false'
+
 # 26. Log rotation: 600 lines -> capped to 250 after the next write.
 ROT="$CLAUDE_PLUGIN_DATA/logs/error-log.jsonl"
 rm -f "$ROT" 2>/dev/null

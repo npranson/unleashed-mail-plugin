@@ -36,11 +36,16 @@ _log_build_attempt() {
 }
 
 case "$COMMAND" in
+    # The two xcodebuild actions containing BOTH "build" and "test" (TN2339) are matched explicitly
+    # before the generic arms, kept in lockstep with scripts/build-failure-log.sh so a command can't
+    # change class on success vs. failure.
     *"xcodebuild"*"build-for-testing"*)
-        # build-for-testing BUILDS tests without running them (TN2339) -> the build class, kept in
-        # lockstep with scripts/build-failure-log.sh so a command can't change class on failure.
         echo "🔨 xcodebuild build-for-testing detected — verify BUILD SUCCEEDED in the output above."
         _log_build_attempt "xcodebuild-build"
+        ;;
+    *"xcodebuild"*"test-without-building"*)
+        echo "🧪 xcodebuild test-without-building detected — verify all tests passed in the output above."
+        _log_build_attempt "xcodebuild-test"
         ;;
     *"xcodebuild"*"build"*)
         echo "🔨 xcodebuild build detected — verify BUILD SUCCEEDED in the output above."
