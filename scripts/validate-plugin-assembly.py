@@ -54,6 +54,12 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
         m = TOP_KEY.match(line)
         if m and not line[:1].isspace():
             key, val = m.group(1), m.group(2).strip()
+            # Strip surrounding quotes so `name: "my-agent"` validates as kebab (PR #11).
+            if len(val) >= 2 and (
+                (val.startswith('"') and val.endswith('"'))
+                or (val.startswith("'") and val.endswith("'"))
+            ):
+                val = val[1:-1].strip()
             fm[key] = val  # may be "", ">", "|", or an inline value
             current = key
         elif current is not None and line.strip() and line[:1].isspace():
@@ -81,7 +87,7 @@ def main() -> int:
     def check_frontmatter(path: Path, require_name: bool) -> None:
         rel = path.relative_to(root)
         try:
-            text = path.read_text(encoding="utf-8")
+            text = path.read_text(encoding="utf-8-sig")  # utf-8-sig strips a BOM (PR #11)
         except OSError as e:
             problems.append(f"{rel}: cannot read ({e})")
             return
@@ -112,25 +118,41 @@ def main() -> int:
         if not KEBAB.match(p.stem):
             problems.append(f"{p.relative_to(root)}: command filename stem `{p.stem}` is not kebab-case")
 
-    # JSON manifests must parse.
-    manifests = [
-        root / ".mcp.json",
+    # JSON manifests must parse. plugin.json + marketplace.json are required;
+    # .mcp.json + hooks/hooks.json are optional — validated only when present (the
+    # plan lists hooks.json as JSON-loaded; PR #11). `ValueError` also catches a
+    # UTF-8 BOM/decode error, not just `JSONDecodeError` (which subclasses it).
+    required_manifests = [
         root / ".claude-plugin" / "plugin.json",
         root / ".claude-plugin" / "marketplace.json",
     ]
+    optional_manifests = [
+        root / ".mcp.json",
+        root / "hooks" / "hooks.json",
+    ]
     parsed = 0
-    for m in manifests:
+    total_manifests = len(required_manifests)
+    for m in required_manifests:
         if not m.exists():
             problems.append(f"{m.relative_to(root)}: missing")
             continue
         try:
-            json.loads(m.read_text(encoding="utf-8"))
+            json.loads(m.read_text(encoding="utf-8-sig"))
             parsed += 1
-        except (OSError, json.JSONDecodeError) as e:
+        except (OSError, ValueError) as e:
+            problems.append(f"{m.relative_to(root)}: invalid JSON ({e})")
+    for m in optional_manifests:
+        if not m.is_file():
+            continue
+        total_manifests += 1
+        try:
+            json.loads(m.read_text(encoding="utf-8-sig"))
+            parsed += 1
+        except (OSError, ValueError) as e:
             problems.append(f"{m.relative_to(root)}: invalid JSON ({e})")
 
     summary = (f"{len(agents)} agents, {len(skills)} skills, {len(commands)} commands, "
-               f"{parsed}/{len(manifests)} manifests")
+               f"{parsed}/{total_manifests} manifests")
     if not problems:
         print(f"✅ OK — plugin assembly ({summary})")
         return 0

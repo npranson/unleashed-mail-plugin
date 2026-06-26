@@ -57,7 +57,7 @@ COUNTS_LINE="$(grep -m1 -E '^\*\*[0-9]+ agents' "$README" 2>/dev/null || true)"
 [[ -n "$COUNTS_LINE" ]] || fail "could not find the '**N agents · N skills · N commands …**' line in README"
 
 # BSD wc left-pads with spaces — coerce to an integer via arithmetic ($(( )) ).
-count_files() { local n; n="$(find "$1" -mindepth "${3:-1}" -maxdepth "${4:-1}" -name "$2" 2>/dev/null | wc -l)"; echo "$(( n ))"; }
+count_files() { local n; n="$(find "$1" -mindepth "${3:-1}" -maxdepth "${4:-1}" -name "$2" 2>/dev/null | wc -l || true)"; echo "$(( n ))"; }
 readme_count() { grep -oE "[0-9]+ $1" <<<"$COUNTS_LINE" | head -1 | grep -oE '^[0-9]+' || true; }
 
 DISK_AGENTS="$(count_files "$ROOT/agents" '*.md')"
@@ -78,7 +78,7 @@ check_count "commands" "$DISK_COMMANDS"
 README_MCP="$(grep -oE '[0-9]+ MCP servers?' <<<"$COUNTS_LINE" | head -1 | grep -oE '^[0-9]+' || true)"
 if [[ -n "$README_MCP" ]]; then
   if [[ -f "$MCP_JSON" ]] && command -v python3 >/dev/null 2>&1; then
-    DISK_MCP="$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1])).get("mcpServers",{})))' "$MCP_JSON" 2>/dev/null || echo "")"
+    DISK_MCP="$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1], encoding="utf-8")).get("mcpServers",{})))' "$MCP_JSON" 2>/dev/null || echo "")"
     [[ -n "$DISK_MCP" ]] || fail ".mcp.json present but unparseable for MCP-server count"
     [[ -z "$DISK_MCP" || "$README_MCP" == "$DISK_MCP" ]] \
       || fail "count drift: README says $README_MCP MCP server(s), .mcp.json defines $DISK_MCP"
