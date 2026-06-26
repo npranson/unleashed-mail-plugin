@@ -17,8 +17,8 @@ Run it **after** both review transcripts are captured (see `/unleashed-mail:gemi
 - gemini → `/tmp/agy-out.txt`  (Antigravity `agy`, free-form plaintext)
 - codex  → `/tmp/codex-out.txt` (`codex exec`, free-form plaintext)
 
-Those are the default paths the two review skills write. If the caller captured the transcripts
-elsewhere, read those paths instead.
+Those are the default paths the two review skills write. If the caller specifies custom paths in the
+prompt (e.g. "synthesize `/tmp/a.txt` and `/tmp/b.txt`"), read those instead.
 
 > **Scope — keep this distinct from the code-review synthesizer.** This is the **plan-review**
 > synthesizer: **2 prose transcripts**, before implementation. It is deliberately separate from the
