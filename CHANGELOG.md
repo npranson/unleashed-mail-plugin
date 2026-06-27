@@ -29,6 +29,16 @@ from the host app's `MAJOR.MINORRELEASE.YYMMBB` scheme in `docs/VERSIONING.md`).
   clean `[]`. No version or asset-count change (the `synthesize.py`/`schema.py` interface and the
   SubagentStop hook contract are untouched).
 
+### Fixed
+- **`<agent>.status` sidecar write hardened** (`capture.py`, PR #16 review) — `_write_status` now
+  builds the payload as `{**status, "agent": agent}` (explicit `agent` **last**) instead of
+  `dict(agent=agent, **status)`, so the trusted hook-allowlisted `agent` can never be collided-over
+  or silently overwritten by a future transcript-derived `status` key (today the pinned
+  `_STATUS_FIELDS` carry none — behaviourally identical, just collision-proof). Added a regression
+  test asserting a duplicate (skipped) SubagentStop **preserves** an existing `BLOCKED`/`PARTIAL`
+  sidecar untouched (`test_capture.py`, 142 → 143), pinning the early-return ordering that the
+  Item-12 guarantee depends on.
+
 ## [2.3.1] — 2026-06-26
 
 ### Added

@@ -377,7 +377,12 @@ def _write_status(round_dir: str, agent: str, status: dict) -> None:
     tmp = "%s.tmp.%d" % (dest, os.getpid())
     try:
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump(dict(agent=agent, **status), fh, ensure_ascii=False, indent=2)
+            # `agent` LAST so the trusted hook-allowlisted name always wins over any (transcript-
+            # derived) `status` key; a dict literal also can't raise on a key collision the way
+            # `dict(agent=..., **status)` can. Today `status` never carries an `agent` key (pinned
+            # `_STATUS_FIELDS`), so this is behaviourally identical — just collision-proof and keeps
+            # the "agent is never transcript text" invariant if the schema ever grows. (PR #16 review.)
+            json.dump({**status, "agent": agent}, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
         os.replace(tmp, dest)
     except (OSError, TypeError, ValueError):

@@ -546,6 +546,26 @@ class TestStatusSidecar(unittest.TestCase):
             self.assertEqual(len(self._json(os.path.join(self._round1(root), "security-reviewer.json"))), 1)
             self.assertFalse(os.path.exists(st))
 
+    def test_skipped_duplicate_preserves_existing_status_sidecar(self):
+        # A true duplicate SubagentStop (same agent_id) returns "skipped" via capture()'s early
+        # return BEFORE _clear_status/_write_status, so a previously-persisted BLOCKED/PARTIAL
+        # sidecar MUST survive the replay untouched (NOT wiped, NOT downgraded). Without that
+        # ordering a duplicate replay would silently clear a captured BLOCKED -> it could later
+        # read as a clean [], defeating the whole point of COREDEV-2328. (PR #16 review.)
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(
+                self._cap(root, status_msg("Status: BLOCKED\nBlocker Description: x", []), agent_id="id1"),
+                "written")
+            st = os.path.join(self._round1(root), "security-reviewer.status")
+            self.assertEqual(self._json(st)["status"], "BLOCKED")
+            # Replay the SAME agent_id with a would-be COMPLETE/clean message: it must be skipped,
+            # and the existing BLOCKED sidecar must remain exactly as written.
+            self.assertEqual(
+                self._cap(root, status_msg("Status: COMPLETE", []), agent_id="id1"),
+                "skipped")
+            self.assertTrue(os.path.isfile(st))
+            self.assertEqual(self._json(st)["status"], "BLOCKED")
+
     def test_sidecar_excluded_by_json_glob_and_quarantined_if_loaded(self):
         import glob
         with tempfile.TemporaryDirectory() as root:
