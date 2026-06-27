@@ -1,4 +1,4 @@
-# UnleashedMail — Claude Code Plugin v2.4.1
+# UnleashedMail — Claude Code Plugin v2.4.2
 
 A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email client supporting Gmail and Microsoft Graph, built with Swift 6, SwiftUI, AppKit, WKWebView, GRDB.swift (SQLCipher), and MVVM architecture.
 
@@ -7,6 +7,10 @@ A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email
 > v2.2.0 introduces [`AGENT_CONTRACTS.md`](AGENT_CONTRACTS.md) — the source of truth for cross-agent boundaries (release contract, plan-implement gate, data→logic→ui handoff, AI pipeline ownership, code review pipeline, CI pinning, MCP tool prefixes, mandatory project gates). When two agents disagree about a boundary, the contracts doc wins.
 
 ## What's New
+
+### v2.4.2
+
+- **Hook-manifest integrity gate (COREDEV-2338)** — new [`scripts/validate-hooks.py`](scripts/validate-hooks.py) statically validates `hooks/hooks.json` so a declared hook can't silently fail to fire. It checks every event name against the supported Claude Code set (hard-fail on an unknown/typo'd event), requires simple `Tool|Tool` matchers to reference real tools (catches `Bsh` / `Write|Edti`) while compile-checking grouped regexes like `^(Read|Write)$` (not falsely rejected), requires every `command` to resolve to an existing non-empty `scripts/<file>`, and `bash -n`-parses each referenced script. Wired into `plugin-ci.yml` (`--strict --require-manifest`, before the existing behavioral harness) and `pre-commit-checks.sh` (warn mode). Reviewed with Codex (converged over three rounds). No agents/skills/commands added (counts stay 21 · 18 · 3 · 1).
 
 ### v2.4.1
 

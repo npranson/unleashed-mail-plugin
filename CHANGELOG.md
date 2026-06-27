@@ -13,6 +13,34 @@ from the host app's `MAJOR.MINORRELEASE.YYMMBB` scheme in `docs/VERSIONING.md`).
 
 ## [Unreleased]
 
+## [2.4.2] — 2026-06-27
+
+Hook-manifest integrity gate (COREDEV-2338). Surfaced while auditing whether the plugin's hooks
+actually "hold": the behavioral harness (`scripts/test-hooks.sh`) and `validate-plugin-assembly.py`
+gate hook *scripts* and JSON-parse the manifest, but nothing checked that `hooks/hooks.json` can
+actually fire — a renamed/missing hook script, an invalid event name, or a typo'd tool matcher all
+passed CI. Reviewed with Codex (converged REQUEST_CHANGES → APPROVE over three rounds). No
+agents/skills/commands added (counts stay 21 · 18 · 3 · 1).
+
+### Added
+- **`scripts/validate-hooks.py`** (stdlib-only) — static integrity check of `hooks/hooks.json`:
+  every event key must be in a `KNOWN_EVENTS` allowlist (hard-fail on unknown/typo'd events, which
+  would never fire); tool matchers of the simple `Tool|Tool` form must reference known tools
+  (catches `Bsh`, `Write|Edti`) while regex matchers like `^(Read|Write)$` are compile-checked, not
+  falsely rejected; every `command` must resolve to an existing, non-empty `scripts/<file>`;
+  `bash -n` parses each referenced script; `--require-manifest` fails when a hooks-shipping plugin's
+  manifest is missing.
+- **CI gate** in `.github/workflows/plugin-ci.yml` — runs `validate-hooks.py --root . --strict
+  --require-manifest` before the existing `test-hooks.sh` harness.
+- **Pre-commit wiring** in `scripts/pre-commit-checks.sh` — runs the validator in warn mode
+  alongside the other plugin validators.
+
+### Changed
+- **`scripts/test-hooks.sh`** — documented its coverage boundary: it hardcodes hook-script paths, so
+  the manifest↔script linkage, event names, and matcher tokens are gated by `validate-hooks.py`; the
+  PostToolUse `swift-lint-check.sh` hook is not behaviorally simulated on the Linux CI runner.
+- **Plugin bumped to 2.4.2.** `README.md` H1 + What's-New updated; asset counts unchanged.
+
 ## [2.4.1] — 2026-06-27
 
 Host-app documentation sync (COREDEV-2335) — corrects seven stale/contradictory spots where the
