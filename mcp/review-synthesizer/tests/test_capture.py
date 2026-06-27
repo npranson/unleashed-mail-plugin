@@ -624,5 +624,22 @@ class TestStatusSidecar(unittest.TestCase):
             self.assertEqual([f for f in os.listdir(rd) if ".tmp." in f], [])
 
 
+class TestPromptReviewAgent(unittest.TestCase):
+    def test_prompt_review_is_valid_agent(self):
+        self.assertIn("prompt-review", C.VALID_AGENTS)  # COREDEV-2329
+
+    def test_captures_ai_safety_finding(self):
+        with tempfile.TemporaryDirectory() as root:
+            msg = fenced([raw(sourceAgent="prompt-review", category="unsanitized-ingress")])
+            self.assertEqual(
+                C.capture(root, "COREDEV-2329", "prompt-review", msg, "id1"), "written")
+            dest = os.path.join(root, "COREDEV-2329", "round-1", "prompt-review.json")
+            self.assertTrue(os.path.isfile(dest))
+            with open(dest, encoding="utf-8") as fh:
+                rows = json.load(fh)
+            self.assertEqual(rows[0]["category"], "unsanitized-ingress")
+            self.assertEqual(rows[0]["sourceAgent"], "prompt-review")
+
+
 if __name__ == "__main__":
     unittest.main()

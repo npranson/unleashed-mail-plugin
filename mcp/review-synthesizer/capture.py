@@ -55,6 +55,7 @@ VALID_AGENTS = (
     "concurrency-reviewer",
     "ux-perf-reviewer",
     "accessibility-auditor",
+    "prompt-review",
 )
 
 

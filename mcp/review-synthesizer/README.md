@@ -63,13 +63,15 @@ The server returns `blockersToVerify` precisely because it cannot read the repo.
    - *deprecation* — `deprecation` `dependency`
    - *perf* — `main-thread` `rendering` `db-query` `image-budget` `network-efficiency` `memory` `perceived-perf` `error-ux` `animation`
    - *a11y* — `voiceover` `keyboard-nav` `dynamic-type` `curator-tokens` `color-contrast` `webview-a11y` `dual-impl-parity` `notifications` `macos-specific` `a11y`
+   - *ai-safety* — `jailbreak-surface` `missing-refusal-path` `format-leak` `context-overflow-risk` `ambiguous-instruction` `evaluation-gap` `unsanitized-ingress` `inline-prompt-leak` `unscoped-tool` `pii-log-leak`
    - singletons — `parity` · `test-coverage` · `verification`
 3. **Cluster, never collapse.** Candidates are clustered and **cross-linked** (every
    fix kept); headline severity = the max. Code can't prove "same defect", so it
    never silently deletes the second fix — an optional `same_defect` adjudicator may
    collapse further.
 4. **Ownership routing** (re-route only, never drop): any a11y-relevant row →
-   accessibility-auditor; credential-site `token-race` and sanitize/render → security.
+   accessibility-auditor; any ai-safety row → prompt-review; credential-site
+   `token-race` and sanitize/render → security.
 5. **Verify gate** (caller, not server): confirm each `blockersToVerify` against the
    code → confirmed gates; unconfirmable → NEEDS DISCUSSION.
 6. **Verdict:** any confirmed blocker → REQUEST CHANGES; only unconfirmable blockers

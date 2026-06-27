@@ -30,7 +30,7 @@ hook_io_read
 
 AGENT="$(hook_str agent_type)"
 case "$AGENT" in
-    security-reviewer|concurrency-reviewer|ux-perf-reviewer|accessibility-auditor) ;;
+    security-reviewer|concurrency-reviewer|ux-perf-reviewer|accessibility-auditor|prompt-review) ;;
     *) exit 0 ;;   # EXCLUDE swift-reviewer + everything else
 esac
 

@@ -174,7 +174,7 @@ log as they go. `jira-manager` mirrors plan state to Jira ticket status.
 
 ## 5. Code Review Pipeline
 
-**Owner:** `swift-reviewer` · **Sub-reviewers:** `security-reviewer`, `concurrency-reviewer`, `ux-perf-reviewer`, `accessibility-auditor`
+**Owner:** `swift-reviewer` · **Sub-reviewers:** `security-reviewer`, `concurrency-reviewer`, `ux-perf-reviewer`, `accessibility-auditor`, `prompt-review`
 
 ### Order of operations
 

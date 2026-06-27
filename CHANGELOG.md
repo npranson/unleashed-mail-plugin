@@ -14,6 +14,22 @@ from the host app's `MAJOR.MINORRELEASE.YYMMBB` scheme in `docs/VERSIONING.md`).
 ## [Unreleased]
 
 ### Added
+- **`prompt-review` — static AI-prompt / call-site reviewer, fully wired into the review pipeline**
+  (COREDEV-2330 agent + COREDEV-2329 wiring; under Epic COREDEV-2126 GARI safety). A read-only 5th
+  specialist reviewer that statically audits AI prompts and provider call sites (jailbreak/injection
+  surface, missing refusal paths, format/context leaks, unsanitized ingress of untrusted email/web
+  content, inline prompts outside `PromptRegistry`, unscoped tools, PII-in-logs). It ends its report
+  with a fenced ` ```json ` findings array + a `Status:` line and is now a first-class member of the
+  deterministic pipeline: a new **`ai-safety`** category family (10 categories) + `DISPLAY_BUCKET`
+  ("AI Prompt Safety") and `prompt-review` ownership in `mcp/review-synthesizer/` (`schema.py`,
+  `synthesize.py`, the manual-fallback `README.md`); added to the `swift-reviewer` Step-2 panel
+  (owner of the `ai-flow` structural subsystem), the status-read recipe, and the consolidated report;
+  added to both SubagentStop/SubagentStart capture allowlists + `VALID_AGENTS`; and to
+  `/unleashed-mail:pr-review`, `/unleashed-mail:implement`, `agent-orchestration`, `AGENT_CONTRACTS.md`,
+  and the Codex review mirror. Agent count **20 → 21** (README + `plugin.json` already bumped with the
+  agent; no plugin version bump — hooks/schema aren't asset-counted). Tests cover the capture, the
+  category↔schema **exact-equality** invariant (guards the silent-drop trap), and `ai-safety`
+  routing/render. Plan-review gate: codex `APPROVE_WITH_NOTES` + gemini `APPROVE_WITH_NITS`.
 - **Reviewer-capture round binding — a stable per-cycle signal from `SubagentStart`** (COREDEV-2326,
   closes Epic COREDEV-2321). The SubagentStop reviewer capture's round was previously only *inferred*
   (`capture.py:select_round`), which cannot perfectly group cycles under interleaved timing — a late

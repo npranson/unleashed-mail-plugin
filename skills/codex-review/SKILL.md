@@ -95,11 +95,12 @@ Codex has first-class skills that mirror every Unleashed Mail plugin agent, comm
 
 General form: `codex exec -s read-only "/<skill-name> [ARGS or FILES]"`
 
-**Review** (run the first four in parallel, then synthesize with `/swift-reviewer`):
+**Review** (run the first five in parallel, then synthesize with `/swift-reviewer`):
 - `/security-reviewer` — credential exposure, injection, insecure storage, entitlement misuse, OAuth flaws, supply-chain risks
 - `/concurrency-reviewer` — race conditions, data races, actor isolation, unsafe threading, deprecated Swift/Apple APIs
 - `/ux-perf-reviewer` — UI responsiveness, animation, memory, DB query perf, network optimization
 - `/accessibility-auditor` — VoiceOver, keyboard nav, Dynamic Type, color contrast, a11y labels/hints/traits
+- `/prompt-review` — AI prompt/call-site safety: jailbreak/injection surface, refusal paths, unsanitized ingress, tool scoping, PII-in-logs
 - `/swift-reviewer` — orchestrator + provider-parity audit + synthesizer
 
 **Implementation:** `/logic-engineer`, `/ui-engineer`, `/db-engineer`, `/ai-engineer`, `/tester`, `/code-simplifier`
@@ -126,8 +127,9 @@ codex exec -s read-only "/security-reviewer [FILES]"
 codex exec -s read-only "/concurrency-reviewer [FILES]"
 codex exec -s read-only "/ux-perf-reviewer [FILES]"
 codex exec -s read-only "/accessibility-auditor [FILES]"
+codex exec -s read-only "/prompt-review [FILES]"
 
-# Synthesize after the four complete
+# Synthesize after the five complete
 codex exec -s read-only "/swift-reviewer [PRIOR_OUTPUTS or FILES]"
 
 # Implementation consult
@@ -140,9 +142,9 @@ codex exec -s read-only "PLAN_OR_DEBUG_CONTENT"
 ## Full workflow (plan or debug → implementation → post-impl audit)
 
 1. **Plan review:** `codex exec -s read-only "PLAN_CONTENT"` — **end the prompt asking Codex to finish with an explicit `VERDICT: APPROVE | APPROVE_WITH_NOTES | REQUEST_CHANGES` line** so the synthesis step can parse it deterministically. Once gemini's paired transcript is also captured, run `/unleashed-mail:review-synthesis` to combine `/tmp/codex-out.txt` + `/tmp/agy-out.txt` into one auditable **Combined verdict** block before implementation.
-2. **Post-implementation audit:** run the four Codex audit skills in parallel (`/security-reviewer`, `/concurrency-reviewer`, `/ux-perf-reviewer`, `/accessibility-auditor`) with `-s read-only`
+2. **Post-implementation audit:** run the five Codex audit skills in parallel (`/security-reviewer`, `/concurrency-reviewer`, `/ux-perf-reviewer`, `/accessibility-auditor`, `/prompt-review`) with `-s read-only`
 3. **Full diff review:** optionally also run `codex exec review --uncommitted`
-4. **Synthesize:** run `/swift-reviewer` last, feeding it the four audit outputs
+4. **Synthesize:** run `/swift-reviewer` last, feeding it the five audit outputs
 5. Incorporate feedback from both Gemini and Codex before considering work complete
 
 ## Safety rules

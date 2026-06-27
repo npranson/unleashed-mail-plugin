@@ -1,9 +1,9 @@
 ---
 name: swift-reviewer
 description: >
-  Lead code review orchestrator for UnleashedMail. Spawns four specialized
+  Lead code review orchestrator for UnleashedMail. Spawns five specialized
   reviewer subagents (security, concurrency/deprecation, UX/performance,
-  accessibility) in parallel, runs the provider parity audit itself, and
+  accessibility, AI-prompt-safety) in parallel, runs the provider parity audit itself, and
   synthesizes all findings into a unified review verdict. Invoke for PR reviews
   or before merging. Also spawns jira-manager to log the review. Invoke
   automatically after completing any feature implementation, before creating
@@ -140,7 +140,7 @@ reviewers trace the rest and tag findings outside the diff with `scope:
 
 ### Step 2: Launch Specialized Reviewers in Parallel
 
-**If the four reviewers' JSON arrays were already provided to you** (an external
+**If the five reviewers' JSON arrays were already provided to you** (an external
 orchestrator ran them per SKILL.md), skip spawning and go straight to Step 3 — do not
 re-run them. The `Status:` line is part of each reviewer's report, so when you have a reviewer's
 **full output** (prose + JSON) read it and apply the BLOCKED/PARTIAL handling from Step 5.
@@ -157,7 +157,7 @@ captured arrays, read each reviewer's status from the **same round** as its find
 CTX="${CLAUDE_PLUGIN_ROOT:-.}/scripts/lib/context.sh"; [ -f "$CTX" ] || CTX="scripts/lib/context.sh"
 . "$CTX"
 BASE="$(context_reviews_dir)/$(context_branch_slug "$(context_branch)")"
-for agent in security-reviewer concurrency-reviewer ux-perf-reviewer accessibility-auditor; do
+for agent in security-reviewer concurrency-reviewer ux-perf-reviewer accessibility-auditor prompt-review; do
     rd="$(context_latest_round_dir "$BASE" "$agent")"   # highest round holding this agent's findings
     [ -n "$rd" ] || continue
     echo "=== $agent ==="
@@ -182,7 +182,7 @@ holds on the capture path too **whenever a recognizable status was persisted**; 
 unrecognizable captured array it degrades to the pre-Item-12 behaviour, **never worse** (a
 merely-absent sidecar never forces a false fail-closed).
 
-Otherwise spawn **all four** review agents simultaneously using the
+Otherwise spawn **all five** review agents simultaneously using the
 `Agent` tool, plus `jira-manager` to log the review. Pass each agent the list of
 changed files and a brief summary.
 
@@ -207,7 +207,16 @@ changed files and a brief summary.
 > VoiceOver labels, keyboard navigation, Dynamic Type, color contrast, focus
 > management, and dual-implementation parity. Files: [Swift list + changed Web assets (HTML/JS/CSS)]
 
-**Agent 5: `jira-manager`** (parallel with all reviewers)
+**Agent 5: `prompt-review`** (AI-prompt-safety; static, read-only)
+> Statically review the changed files that build LLM prompts or call AI providers —
+> `PromptRegistry` entries, `AIProviderProtocol` call sites, `ToolRegistry`/tool handlers,
+> `LLMInputSanitizer`/`PIIRedactor` usage, and anything under `Sources/Services/AI/**`.
+> Focus on jailbreak/injection surface, missing refusal paths, format leaks,
+> context-overflow risk, unsanitized ingress of untrusted email/web content, inline
+> prompts outside `PromptRegistry`, unscoped tools, and PII-in-logs. Files: [Swift list —
+> prompt/provider/tool/AI call sites]
+
+**Agent 6: `jira-manager`** (parallel with all reviewers)
 > Log the review in progress on the corresponding Jira ticket. Note which
 > review agents are running and update when the review concludes.
 
@@ -235,14 +244,14 @@ changed files and a brief summary.
 >
 > | Structural subsystem | Whole-pipeline reviewers |
 > |---|---|
-> | `provider-protocol` | all four (parity-critical) + your parity audit |
+> | `provider-protocol` | all five (parity-critical) + your parity audit |
 > | `api-layer` | security · concurrency · ux-perf |
-> | `ai-flow` | security (PII/safety) · concurrency · ux-perf |
+> | `ai-flow` | **prompt-review (owner)** · security (PII/safety) · concurrency · ux-perf |
 > | `sync` | concurrency · ux-perf · security |
 > | `auth-token` | security · concurrency |
 > | `db-schema` | concurrency · ux-perf · security |
 > | `webview-html` | security · concurrency · accessibility · ux-perf |
-> | `service-wiring` / `model-contract` | all four (contract-wide blast radius) |
+> | `service-wiring` / `model-contract` | all five (contract-wide blast radius) |
 > | `app-structure` / `dependencies` | security · concurrency |
 > | `navigation-shortcuts` | accessibility · ux-perf · concurrency |
 > | *any other structural subsystem* | route by domain — security + concurrency always; ux-perf if perf-bearing; accessibility if it touches views/navigation |
@@ -354,10 +363,10 @@ the verdict.
 
 ### Step 5: Synthesize Unified Review
 
-Collect the JSON findings arrays from all four specialist agents, plus the `parity`,
+Collect the JSON findings arrays from all five specialist agents, plus the `parity`,
 `test-coverage`, and `verification` rows you produced in Steps 3–4. Work from the
 **JSON arrays, not the prose reports** — that keeps synthesis compact (avoids
-re-ingesting four long reports) and is the source of truth for dedup and the verdict.
+re-ingesting five long reports) and is the source of truth for dedup and the verdict.
 Combine everything into one coherent review with a single verdict.
 
 #### Structured Findings contract
@@ -441,7 +450,7 @@ ones. Pass it the findings you recovered above (it quarantines any still-invalid
 rather than dropping it):
 
 > Call `mcp__plugin_unleashed-mail_review-synthesizer__synthesize_review` with
-> `{ "findings": [ …all four reviewers' rows + your parity/test/verification rows… ],
+> `{ "findings": [ …all five reviewers' rows + your parity/test/verification rows… ],
 > "changed_files": [ …every path in $CHANGED… ] }`
 
 It returns:
@@ -506,7 +515,7 @@ list (from your verify gate), and the **Verdict** (from your final-verdict step)
 
 **PR**: [branch name or PR description]
 **Files Changed**: [count]
-**Reviewers**: security ✅ | concurrency ✅ | ux-perf ✅ | accessibility ✅ | parity ✅
+**Reviewers**: security ✅ | concurrency ✅ | ux-perf ✅ | accessibility ✅ | prompt-safety ✅ | parity ✅
 
 ---
 
@@ -529,6 +538,9 @@ list (from your verify gate), and the **Verdict** (from your final-verdict step)
 
 ### Accessibility Findings
 [From accessibility-auditor — including dual-implementation parity check]
+
+### AI Prompt Safety Findings
+[From prompt-review — jailbreak/injection surface, refusal paths, unsanitized ingress, tool scoping, PII-in-logs on AI prompt/call sites; omit if no AI/prompt files changed]
 
 ### Test Coverage
 [Your assessment]

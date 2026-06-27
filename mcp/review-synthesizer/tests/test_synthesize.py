@@ -89,6 +89,51 @@ class TestOwnershipRouting(unittest.TestCase):
               f(category="color-contrast", sourceAgent="accessibility-auditor", severity="warning", finding="audit")]
         self.assertEqual(S.route_owner(fs).sourceAgent, "accessibility-auditor")
 
+    def test_ai_safety_owned_by_prompt_review(self):
+        # an ai-safety row clustered with a security row -> prompt-review owns (COREDEV-2329).
+        fs = [f(category="privacy", sourceAgent="security-reviewer", severity="warning", finding="sec"),
+              f(category="pii-log-leak", sourceAgent="prompt-review", severity="warning", finding="ai")]
+        self.assertEqual(S.route_owner(fs).sourceAgent, "prompt-review")
+
+    def test_ai_safety_tie_prefers_prompt_review_over_input_order(self):
+        fs = [f(category="unsanitized-ingress", sourceAgent="security-reviewer", severity="blocker", finding="sec"),
+              f(category="unsanitized-ingress", sourceAgent="prompt-review", severity="blocker", finding="ai")]
+        self.assertEqual(S.route_owner(fs).sourceAgent, "prompt-review")
+
+
+class TestAISafetyFamily(unittest.TestCase):
+    # The 10 prompt-review taxonomy kinds, canonical. The agent emits these verbatim as `category`.
+    EXPECTED = {
+        "jailbreak-surface", "missing-refusal-path", "format-leak", "context-overflow-risk",
+        "ambiguous-instruction", "evaluation-gap", "unsanitized-ingress", "inline-prompt-leak",
+        "unscoped-tool", "pii-log-leak",
+    }
+
+    def test_category_set_equality_invariant(self):
+        # The silent-drop trap (COREDEV-2329): the agent-emitted set MUST equal the schema family
+        # set MUST equal synthesize's ownership set — exact, all kebab-case. Any drift quarantines.
+        import schema
+        schema_set = {c for c, fam in schema.CATEGORY_FAMILY.items() if fam == "ai-safety"}
+        self.assertEqual(schema_set, self.EXPECTED)
+        self.assertEqual(S._AI_SAFETY_CATEGORIES, self.EXPECTED)
+        for c in self.EXPECTED:
+            self.assertRegex(c, r"^[a-z]+(?:-[a-z]+)*$")
+
+    def test_agent_md_documents_every_category(self):
+        # the shipped agents/prompt-review.md must name each category (so its output can't drift
+        # from the schema undetected).
+        here = os.path.dirname(os.path.abspath(__file__))
+        agent_md = os.path.join(here, "..", "..", "..", "agents", "prompt-review.md")
+        with open(agent_md, encoding="utf-8") as fh:
+            text = fh.read()
+        for c in self.EXPECTED:
+            self.assertIn(c, text, f"prompt-review.md does not document category {c!r}")
+
+    def test_ai_safety_finding_validates_and_buckets(self):
+        fnd = f(category="jailbreak-surface", sourceAgent="prompt-review")
+        self.assertEqual(fnd.family, "ai-safety")
+        self.assertEqual(fnd.bucket, "AI Prompt Safety")
+
 
 class TestScope(unittest.TestCase):
     CHANGED = {"A.swift"}

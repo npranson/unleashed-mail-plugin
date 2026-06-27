@@ -7,8 +7,9 @@ description: >
   paths, format leaks, context-overflow risk, unsanitized ingress of untrusted
   email/web content, inline-prompt leaks outside PromptRegistry, unscoped tools,
   and PII-in-logs. Read-only: never edits code, runs no mutating/test/app-launch/
-  network commands. Runs standalone today; integration into the swift-reviewer
-  workflow is a tracked follow-up (not yet wired). Invoke when creating or modifying
+  network commands. Runs standalone or as the fifth reviewer in the swift-reviewer
+  panel — ends its report with a fenced JSON findings array (ai-safety family) + a
+  Status line, consumed by the review-synthesizer. Invoke when creating or modifying
   PromptRegistry entries, AI provider call sites, tool handlers/schemas,
   LLMInputSanitizer/PIIRedactor usage, or any file under Sources/Services/AI/** that
   builds messages sent to an LLM.
@@ -89,3 +90,64 @@ commands, tests, app launches, or network calls; never write/edit. Does not revi
 correctness/concurrency/perf/a11y/UI (other reviewers own those) and avoids
 WKWebView/security-general findings (security-reviewer) and runtime-pipeline implementation
 (ai-engineer). Complements, not replaces, runtime safety.
+
+## Structured Findings (orchestrator handoff)
+
+After the prose tables above, end your report with a fenced ```json array — the
+machine-readable handoff the SubagentStop capture extracts and `swift-reviewer` / the
+review-synthesizer ingests. **JSON, not the prose, is the source of truth** for dedup and
+the verdict, so emit it exactly. One object per finding; emit `[]` if the review is clean.
+It MUST be the **last** fenced block in the report (the capture takes the LAST ```json
+fence — use the bare `json` tag, never ```jsonc/```json5). JSON escaping handles pipes,
+backticks, and newlines in `finding`/`fix`, so escape newlines as `\n` and use single
+backticks (never triple-backtick fences) for code.
+
+```json
+[
+  {
+    "severity": "blocker",
+    "confidence": "high",
+    "sourceAgent": "prompt-review",
+    "category": "unsanitized-ingress",
+    "file": "Unleashed Mail/Sources/Services/AI/Stages/TodoExtractionStage.swift",
+    "line": 64,
+    "lineEnd": 71,
+    "finding": "Raw email body reaches the provider with no LLMInputSanitizer gate",
+    "evidence": "messages includes email.bodyText verbatim before complete(_:)",
+    "fix": "Route email.bodyText through LLMInputSanitizer before assembling messages (co-locate with the existing inline validators; NOT AISafetyPipeline — unshipped)"
+  }
+]
+```
+
+- `severity`: `blocker` (🔴) · `warning` (🟡) · `suggestion` (🔵) — lowercase (map BLOCKER→`blocker`, WARNING→`warning`, SUGGESTION→`suggestion`)
+- `confidence`: `high` · `medium` · `low` — how hard the orchestrator should scrutinize, **not** whether it gates
+- `sourceAgent`: always `"prompt-review"`
+- `category`: **one of your taxonomy kinds, verbatim** — `jailbreak-surface` · `missing-refusal-path` · `format-leak` · `context-overflow-risk` · `ambiguous-instruction` · `evaluation-gap` · `unsanitized-ingress` · `inline-prompt-leak` · `unscoped-tool` · `pii-log-leak`. These are the synthesizer's **`ai-safety`** family; any other value is dropped as an unknown category.
+- `file`: repo-relative path · `line`/`lineEnd`: integers (`0` for a file-level finding; `lineEnd ≥ line`)
+
+Use **your** AI-prompt-safety vocabulary even when a finding overlaps another reviewer's turf (e.g. a `pii-log-leak` that also looks like a `privacy` issue) — the orchestrator reconciles ownership; your row must be present for it to count.
+
+## Output Contract
+
+**Return status:** COMPLETE | BLOCKED | PARTIAL
+
+Emit **one** of these values on a `Status:` line **immediately before** your JSON findings array (an
+actual value — `Status: COMPLETE` — never the `COMPLETE | BLOCKED | PARTIAL` template), with only blank
+or detail-field lines between it and the final fenced `json` array. Keep that `json` array the **final
+block** of your report (per *Structured Findings* above) so it stays trivially parseable and matches the
+handoff template in `skills/agent-orchestration/SKILL.md`. The orchestrator reads the status **first,
+then** the array — so a review that *couldn't run* returns `BLOCKED` + `[]` instead of an empty `[]`
+that reads as a clean pass. Status (did-the-review-finish) is orthogonal to the findings verdict
+(is-the-prompt-OK). Use these exact `key: value` fields:
+
+- **COMPLETE** — review ran fully; the JSON findings array is authoritative (`[]` if clean):
+  - `Status: COMPLETE`
+- **BLOCKED** — could not review; emit `[]` for findings:
+  - `Status: BLOCKED`
+  - `Blocker Description: <what blocked the review>`
+  - `What Was Attempted: <the steps you tried>`
+- **PARTIAL** — reviewed only some artifacts; findings cover ONLY the completed scope:
+  - `Status: PARTIAL`
+  - `Completed: <artifacts/scope reviewed>`
+  - `Remaining: <artifacts/scope not reached>`
+  - `Confidence: <0-100>`

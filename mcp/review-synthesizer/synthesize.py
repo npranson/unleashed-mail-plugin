@@ -91,6 +91,12 @@ _A11Y_CATEGORIES = {
     "macos-specific",
 }
 
+_AI_SAFETY_CATEGORIES = {
+    "jailbreak-surface", "missing-refusal-path", "format-leak",
+    "context-overflow-risk", "ambiguous-instruction", "evaluation-gap",
+    "unsanitized-ingress", "inline-prompt-leak", "unscoped-tool", "pii-log-leak",
+}
+
 def _highest(fs: list[Finding]) -> Finding:
     return max(fs, key=lambda f: SEVERITY_RANK[f.severity])
 
@@ -106,6 +112,12 @@ def route_owner(findings: list[Finding]) -> Finding:
         # on a severity tie the auditor wins, regardless of input order (e.g. a
         # ux-perf row with category:"a11y" must not outrank the auditor's row).
         return next((f for f in tied if f.sourceAgent == "accessibility-auditor"), tied[0])
+    ai = [f for f in findings
+          if f.category in _AI_SAFETY_CATEGORIES or f.sourceAgent == "prompt-review"]
+    if ai:                                     # prompt-review owns AI-prompt-safety findings
+        top = max(SEVERITY_RANK[f.severity] for f in ai)
+        tied = [f for f in ai if SEVERITY_RANK[f.severity] == top]
+        return next((f for f in tied if f.sourceAgent == "prompt-review"), tied[0])
     sec = [f for f in findings if f.family == "security"]
     if sec and (any(f.category == "token-race" for f in findings)
                 or any(f.category in ("html-sanitization", "webview") for f in sec)):

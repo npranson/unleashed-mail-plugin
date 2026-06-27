@@ -28,6 +28,7 @@ allowed-tools: Agent, Read, Grep, Glob, Bash
 | `concurrency-reviewer` | **Correctness/logic**, races, actors, deprecated APIs | Changeset (+ whole pipeline on structural changes) | All other reviewers |
 | `ux-perf-reviewer` | Responsiveness, rendering, query perf | Changeset (+ whole pipeline on structural changes) | All other reviewers |
 | `accessibility-auditor` | VoiceOver, keyboard nav, a11y labels | Changeset (+ whole pipeline on structural changes) | All other reviewers |
+| `prompt-review` | AI prompt/call-site safety: injection, refusal, ingress, tool scoping, PII-in-logs | Changeset (+ whole pipeline on structural changes) | All other reviewers |
 | `swift-reviewer` | Orchestrator + parity & test-coverage audit | Reviewer outputs | Runs after reviewers complete |
 
 > **Ownership notes.** `concurrency-reviewer` is the **correctness owner** — general
@@ -39,9 +40,9 @@ allowed-tools: Agent, Read, Grep, Glob, Bash
 > so they are first-class in dedup and the verdict.
 >
 > **One orchestrator, one entry point.** Invoking `swift-reviewer` runs the whole
-> pipeline: it spawns the four reviewers itself (Step 2), runs its own parity / test /
+> pipeline: it spawns the five reviewers itself (Step 2), runs its own parity / test /
 > verification audits, then synthesizes (Step 5). The "Stage 4 → Stage 5" split in the
-> diagrams below is swift-reviewer's *internal* sequence — you may also run the four
+> diagrams below is swift-reviewer's *internal* sequence — you may also run the five
 > reviewers yourself and hand their JSON to swift-reviewer for synthesis. Either way
 > there is exactly one orchestrator and one verdict.
 
@@ -62,7 +63,7 @@ When spawning agents via the `Agent` tool, launch all independent agents in a si
 Do NOT wait for one to finish before starting another if they don't depend on each other.
 
 ```
-✅ Good: Launch security-reviewer + concurrency-reviewer + ux-perf-reviewer + accessibility-auditor simultaneously
+✅ Good: Launch security-reviewer + concurrency-reviewer + ux-perf-reviewer + accessibility-auditor + prompt-review simultaneously
 ❌ Bad: Run security-reviewer, wait, then run concurrency-reviewer, wait, then...
 ```
 
@@ -72,7 +73,7 @@ Do NOT wait for one to finish before starting another if they don't depend on ea
 Stage 1 (parallel):  db-engineer + jira-manager + modern-standards-planner
 Stage 2 (parallel):  logic-engineer (Gmail) + logic-engineer (Graph) + jira-manager update
 Stage 3 (parallel):  ui-engineer + jira-manager update
-Stage 4 (parallel):  security-reviewer + concurrency-reviewer + ux-perf-reviewer + accessibility-auditor
+Stage 4 (parallel):  security-reviewer + concurrency-reviewer + ux-perf-reviewer + accessibility-auditor + prompt-review
 Stage 5 (serial):    swift-reviewer orchestrator synthesizes
 ```
 
@@ -93,7 +94,7 @@ The user can request any combination:
 → Launch db-engineer, then chain logic-engineer
 
 "Do a full review"
-→ Launch all 4 reviewers in parallel → swift-reviewer synthesizes
+→ Launch all 5 reviewers in parallel → swift-reviewer synthesizes
 
 "Implement and review, but skip the planner"
 → db → logic → ui → all reviewers in parallel

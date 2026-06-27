@@ -1,0 +1,29 @@
+[
+  {
+    "severity": "blocker", "confidence": "high", "sourceAgent": "prompt-review",
+    "category": "unsanitized-ingress",
+    "file": "Unleashed Mail/Sources/Services/AI/Stages/TodoExtractionStage.swift",
+    "line": 64, "lineEnd": 71,
+    "finding": "Raw email body reaches the provider with no LLMInputSanitizer gate",
+    "evidence": "messages includes email.bodyText verbatim before complete(_:)",
+    "fix": "Route email.bodyText through LLMInputSanitizer before assembling messages (co-locate with existing inline validators; not AISafetyPipeline — unshipped)"
+  },
+  {
+    "severity": "warning", "confidence": "medium", "sourceAgent": "prompt-review",
+    "category": "inline-prompt-leak",
+    "file": "Unleashed Mail/Sources/Services/AI/SmartComposeService.swift",
+    "line": 42, "lineEnd": 42,
+    "finding": "System prompt is an inline string literal outside PromptRegistry",
+    "evidence": "let system = \"You are a helpful email assistant...\"",
+    "fix": "Move the prompt into PromptRegistry (versioned); leave only a resolveBody(id:fallback:) reference"
+  },
+  {
+    "severity": "warning", "confidence": "high", "sourceAgent": "prompt-review",
+    "category": "unscoped-tool",
+    "file": "Unleashed Mail/Sources/Services/AI/Tools/DeleteEventHandler.swift",
+    "line": 18, "lineEnd": 33,
+    "finding": "Calendar-delete tool handler does not scope by account before mutating",
+    "evidence": "execute(_:) deletes by eventId without verifyEmailOwnership / uiContext.accountEmail",
+    "fix": "Gate the handler on verifyEmailOwnership(context.uiContext.accountEmail) before the delete"
+  }
+]

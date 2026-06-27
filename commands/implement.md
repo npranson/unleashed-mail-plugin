@@ -108,12 +108,13 @@ After all three agents complete:
 
 ## Phase 5: Multi-Agent Review
 
-Launch the `swift-reviewer` orchestrator agent, which will spawn four
+Launch the `swift-reviewer` orchestrator agent, which will spawn five
 specialized reviewers in parallel:
 - `security-reviewer` — credentials, OAuth, pipeline, injection
 - `concurrency-reviewer` — races, actors, deprecated APIs
 - `ux-perf-reviewer` — responsiveness, rendering, query perf
 - `accessibility-auditor` — VoiceOver, keyboard nav, a11y labels, dual-impl parity
+- `prompt-review` — AI prompt/call-site safety: injection, refusal, ingress, tool scoping, PII-in-logs
 
 Plus the `jira-manager` to log the review results on the ticket.
 

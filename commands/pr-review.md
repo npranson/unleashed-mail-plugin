@@ -1,5 +1,5 @@
 ---
-description: Run a multi-agent code review on the current branch (security + concurrency + UX/perf + accessibility + parity)
+description: Run a multi-agent code review on the current branch (security + concurrency + UX/perf + accessibility + AI-prompt-safety + parity)
 allowed-tools: Read, Bash, Grep, Glob, Agent
 disable-model-invocation: true
 ---
@@ -67,10 +67,12 @@ Invoke the **`swift-reviewer`** orchestrator agent. It will:
    rendering efficiency, query performance, UX patterns
 4. Spawn **`accessibility-auditor`** — VoiceOver, keyboard nav, Dynamic Type,
    dual-implementation a11y parity
-5. Run **provider parity audit** — checks Gmail ↔ Graph implementation symmetry
-6. Spawn **`jira-manager`** — logs the review on the corresponding ticket
+5. Spawn **`prompt-review`** — AI prompt/call-site safety: jailbreak/injection surface,
+   refusal paths, unsanitized ingress, tool scoping, PII-in-logs (static, read-only)
+6. Run **provider parity audit** — checks Gmail ↔ Graph implementation symmetry
+7. Spawn **`jira-manager`** — logs the review on the corresponding ticket
 
-All six streams run in parallel and produce independent reports.
+All seven streams run in parallel and produce independent reports.
 
 The orchestrator synthesizes them into a unified review with deduplicated findings,
 a consolidated issue table, and a single verdict.
@@ -143,6 +145,7 @@ Merge the orchestrator's unified review with the test coverage assessment:
 | concurrency-reviewer | ✅/⚠️ | X blockers, Y warnings |
 | ux-perf-reviewer | ✅/⚠️ | X blockers, Y warnings |
 | accessibility-auditor | ✅/⚠️ | X blockers, Y warnings |
+| prompt-review | ✅/⚠️ | X blockers, Y warnings |
 | parity-audit | ✅/⚠️ | X blockers, Y warnings |
 
 ### [Full unified review from swift-reviewer orchestrator]

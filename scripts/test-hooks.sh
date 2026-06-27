@@ -646,6 +646,14 @@ printf '{"agent_type":"security-reviewer","agent_id":"e1","session_id":"sess1","
 if [ -f "$RDIR/round-9/security-reviewer.json" ]; then ok; else fail "explicit UNLEASHED_REVIEW_ROUND not clobbered (round-9)"; fi
 clean_rounds
 
+# COREDEV-2329: the new prompt-review reviewer is accepted by BOTH capture hooks (producer + consumer).
+clean_rounds
+start_bind prompt-review pr1
+if [ -n "$(context_review_round_lookup prompt-review pr1 sess1)" ]; then ok; else fail "prompt-review: SubagentStart binds a round"; fi
+stop_capture prompt-review pr1
+if [ -f "$RDIR/round-1/prompt-review.json" ]; then ok; else fail "prompt-review: SubagentStop capture accepted"; fi
+clean_rounds
+
 # zsh portability: the new round-dir scan + sweep run in the zsh Bash-tool context — a round-less /
 # binding-less base must be clean+empty under NOMATCH, not 'no matches found'. Skipped where zsh absent.
 if command -v zsh >/dev/null 2>&1; then

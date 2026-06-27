@@ -44,6 +44,12 @@ CATEGORY_FAMILY = {
     "curator-tokens": "a11y", "color-contrast": "a11y", "webview-a11y": "a11y",
     "dual-impl-parity": "a11y", "notifications": "a11y",
     "macos-specific": "a11y", "a11y": "a11y",
+    # ai prompt safety (owned by prompt-review)
+    "jailbreak-surface": "ai-safety", "missing-refusal-path": "ai-safety",
+    "format-leak": "ai-safety", "context-overflow-risk": "ai-safety",
+    "ambiguous-instruction": "ai-safety", "evaluation-gap": "ai-safety",
+    "unsanitized-ingress": "ai-safety", "inline-prompt-leak": "ai-safety",
+    "unscoped-tool": "ai-safety", "pii-log-leak": "ai-safety",
     # orchestrator-owned singletons
     "parity": "parity", "test-coverage": "test-coverage",
     "verification": "verification",
@@ -57,6 +63,7 @@ DISPLAY_BUCKET = {
     "deprecation": "Concurrency & Correctness",
     "perf": "Performance & UX",
     "a11y": "Accessibility",
+    "ai-safety": "AI Prompt Safety",
     "parity": "Provider Parity",
     "test-coverage": "Test Coverage",
     "verification": "Build / Lint / Tests",
