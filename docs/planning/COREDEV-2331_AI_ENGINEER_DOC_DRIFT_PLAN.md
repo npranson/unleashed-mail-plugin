@@ -57,7 +57,7 @@ Paths relative to `Unleashed Mail/Unleashed Mail/Sources/Services/AI/`:
 
 - `python3 scripts/validate-plugin-assembly.py --strict` → OK (counts unchanged 21/18/3/1).
 - `VERSION_SYNC_ENFORCE=strict bash scripts/validate-version-sync.sh` → OK (no version/count change).
-- `grep -rn "AIToolDefinition" .` over tracked files → **0** matches (includes `agents/prompt-review.md` — its `AIToolDefinition` mention is removed; this is why the agent's guardrail line is in the inventory).
+- **Active guidance carries 0 `AIToolDefinition`:** `git grep -n "AIToolDefinition" -- agents skills CLAUDE.md AGENT_CONTRACTS.md README.md` → **0** matches (this is the reproducible invariant — `agents/prompt-review.md`'s mention is removed, hence the guardrail line is in the inventory). The symbol legitimately **survives** in `CHANGELOG.md` (the release note) and in this planning doc, which *describe* the removal — those are excluded by scope, not failures.
 - `grep -rn "HTTPBasedAIProvider" .` → only PLANNED-tagged mentions remain (no present-tense "inherit/override … now" framing). The surviving hits — `ai-engineer.md`, `logic-engineer.md`, `AGENT_CONTRACTS.md`, `CLAUDE.md`, `README.md`, `prompt-review.md`'s guardrail — must each tag it PLANNED/COREDEV-1837 or doc-only; manually audit each.
 - No unit tests (docs-only). Add a `CHANGELOG.md` `[Unreleased] → Fixed` entry (swept into 2.4.0 by the release PR).
 - Spot-check: every rewritten Swift snippet references only grep-confirmed symbols.

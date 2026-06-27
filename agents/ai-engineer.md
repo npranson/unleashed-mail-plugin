@@ -62,7 +62,9 @@ These are hard constraints — violating any of them is a 🔴 BLOCKER:
 ### 1. AI Providers (`BaseAIProvider` + `AIProviderProtocol`)
 
 Adding a new cloud AI provider (e.g., a new LLM backend). Providers inherit `BaseAIProvider`,
-conform to `AIProviderProtocol`, and own their `URLSession` today:
+conform to `AIProviderProtocol` (`complete(_:)` / `stream(_:)` / `completeStructured(_:)`), and own
+their `URLSession` today. *Illustrative — the `endpoint` wiring and the `convertMessage` /
+`convertTool` / `parseResponse` provider helpers are real internals elided here for brevity:*
 
 ```swift
 // PLANNED: a future `HTTPBasedAIProvider` base (COREDEV-1837) will absorb the URLSession/SSE
@@ -70,11 +72,13 @@ conform to `AIProviderProtocol`, and own their `URLSession` today:
 final class AnthropicProvider: BaseAIProvider, AIProviderProtocol, @unchecked Sendable {
     private let apiKey: String
     private let session: URLSession
+    private let endpoint: URL
     let supportedFeatures: Set<AIProviderFeature> = [.streaming, .toolCalling, .visionInput, .systemMessages]
     let defaultModel = "claude-sonnet-4-6"
 
-    init(apiKey: String, session: URLSession = NetworkService.shared.session) {
+    init(apiKey: String, endpoint: URL, session: URLSession = NetworkService.shared.session) {
         self.apiKey = apiKey
+        self.endpoint = endpoint
         self.session = session
         super.init(providerId: AIProviderType.anthropic.rawValue)
     }
@@ -92,6 +96,10 @@ final class AnthropicProvider: BaseAIProvider, AIProviderProtocol, @unchecked Se
 
     func stream(_ request: AIProviderRequest) -> AsyncThrowingStream<AIProviderChunk, Error> {
         // SSE via `session.bytes(for:)`, parsing `data:` lines into AIProviderChunk
+    }
+
+    func completeStructured(_ request: AIProviderStructuredRequest) async throws -> AIProviderResponse {
+        // like complete(_:), but requests a JSON-schema-constrained response (third protocol requirement)
     }
 
     // Per-provider request assembly — signature DIFFERS by provider:
@@ -130,6 +138,9 @@ the `AITool` schema is what the LLM sees. (There is no standalone "tool definiti
 // A tool handler serves one or more AgentTool cases and dispatches them in execute(...).
 final class EmailSearchToolHandler: ToolHandlerProtocol, @unchecked Sendable {
     let supportedTools: Set<AgentTool> = [.searchEmails]
+    private let searchService: SearchService            // injected dependency
+
+    init(searchService: SearchService) { self.searchService = searchService }
 
     func execute(
         _ toolCall: ToolCall,                     // carries an AgentTool case + parameters
@@ -138,7 +149,7 @@ final class EmailSearchToolHandler: ToolHandlerProtocol, @unchecked Sendable {
     ) async throws -> ToolHandlerResult {
         let output: AnyCodableValue? = switch toolCall.tool {
         case .searchEmails:
-            // tools touching user data MUST scope by account first
+            // tools touching user data MUST scope by account first (`runSearch`: a private helper)
             try await runSearch(toolCall, accountEmail: context.uiContext.accountEmail)
         default:
             nil   // unreachable: ToolRegistry routes only `supportedTools` here
@@ -286,7 +297,8 @@ final class GARIUnitTests: XCTestCase {
     // Providers conform to AIProviderProtocol; MockAIProvider stands in for a real backend.
     func test_provider_completeReturnsAResponse() async throws {
         let provider = MockAIProvider()
-        _ = try await provider.complete(request)   // AIProviderRequest in, AIProviderResponse out
+        let request = AIProviderRequest(/* messages, model, … */)   // illustrative fixture
+        _ = try await provider.complete(request)                    // → AIProviderResponse
     }
 }
 ```
