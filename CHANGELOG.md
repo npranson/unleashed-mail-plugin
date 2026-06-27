@@ -13,6 +13,32 @@ from the host app's `MAJOR.MINORRELEASE.YYMMBB` scheme in `docs/VERSIONING.md`).
 
 ## [Unreleased]
 
+### Added
+- **Reviewer-capture round binding — a stable per-cycle signal from `SubagentStart`** (COREDEV-2326,
+  closes Epic COREDEV-2321). The SubagentStop reviewer capture's round was previously only *inferred*
+  (`capture.py:select_round`), which cannot perfectly group cycles under interleaved timing — a late
+  reviewer from an earlier cycle could mis-bucket into a later round. A new **`SubagentStart` producer
+  hook** (`scripts/capture-reviewer-round-start.sh` + a `SubagentStart` entry in `hooks/hooks.json`)
+  now *freezes* the round for each of the four specialist reviewers **at spawn**, keyed by its unique
+  `agent_id`, in a per-checkout binding file under `.state/`; the SubagentStop capture
+  (`scripts/capture-reviewer-verdict.sh`) looks it up by the **same** `agent_id` and exports
+  `UNLEASHED_REVIEW_ROUND`, so each capture lands in its **originating** round regardless of
+  completion order, then consume-once clears the binding. New `scripts/lib/context.sh` helpers
+  (`context_highest_round` — decimal-normalized; `context_review_round_bind`/`_lookup`/`_clear`;
+  TTL + bounded `.state` sweep). Observe-only and fail-open end-to-end: an absent/stale/foreign-slug
+  binding, a missing `python3`/`date`, or `UNLEASHED_REVIEW_ROUND_SIGNAL=off` all fall back to the
+  shipped `capture.py` inference; an explicitly-set `UNLEASHED_REVIEW_ROUND` is never clobbered. No
+  change to `capture.py`'s consumption logic, the findings-array shape, or the SubagentStop contract.
+  PII-free (only a slug token, opaque ids, an int, and an epoch are persisted). The round number
+  mirrors `capture.select_round` (advance past a final prior slot, else reuse), so a same-round repair
+  re-run overwrites the empty slot rather than splitting the cycle. Tests: `test-hooks.sh`
+  104 → **132** (interleaving fix, repair/per-agent reuse, stale/cross-agent isolation, decimal
+  arithmetic, consume-once, kill switch, explicit-not-clobbered, producer exclusions, zsh-NOMATCH) and
+  `test_capture.py`
+  143 → **144** (override↔dedup round-trip). Plan-review: codex `APPROVE_WITH_NOTES` + gemini
+  `APPROVE` (`docs/planning/REVIEW_ROUND_PRODUCER_PLAN.md`). No version or asset-count change (hooks
+  are not counted by the version-sync validator).
+
 ### Changed
 - **Reviewer Output-Contract status is now persisted through the SubagentStop capture path**
   (`mcp/review-synthesizer/capture.py`, COREDEV-2328). Each captured reviewer's `Status:`

@@ -250,6 +250,29 @@ class TestRoundSelection(unittest.TestCase):
                 del os.environ["UNLEASHED_REVIEW_ROUND"]
             self.assertTrue(os.path.isfile(os.path.join(root, slug, "round-2", "security-reviewer.json")))
 
+    def test_override_with_duplicate_dedup(self):
+        # COREDEV-2326 round-trip: the producer-side binding reaches capture.py only as the
+        # `UNLEASHED_REVIEW_ROUND` override. This pins the override<->dedup interaction the consumer
+        # relies on: a forced round routes a re-review's NEW agent_id into that round, while a TRUE
+        # duplicate (same agent_id) is still skipped even with the override set — `_seen_agent_ids`
+        # runs in capture() BEFORE select_round()'s override path writes anything.
+        with tempfile.TemporaryDirectory() as root:
+            slug = "COREDEV-2326"
+            self.assertEqual(C.capture(root, slug, "security-reviewer", fenced([raw()]), "id1"), "written")
+            os.environ["UNLEASHED_REVIEW_ROUND"] = "2"   # orchestrator pins round 2 for the re-review
+            try:
+                self.assertEqual(
+                    C.capture(root, slug, "security-reviewer", fenced([raw()]), "id2"), "written")
+                self.assertTrue(os.path.isfile(os.path.join(root, slug, "round-2", "security-reviewer.json")))
+                # a genuine duplicate of the FIRST subagent is still deduped despite the override —
+                # it is not re-written into round 2.
+                self.assertEqual(
+                    C.capture(root, slug, "security-reviewer", fenced([raw()]), "id1"), "skipped")
+            finally:
+                del os.environ["UNLEASHED_REVIEW_ROUND"]
+            # round-1 keeps id1's original capture; round-2 holds only the re-review.
+            self.assertTrue(os.path.isfile(os.path.join(root, slug, "round-1", "security-reviewer.json")))
+
 
 class TestWriteFailureCleanup(unittest.TestCase):
     def test_tmp_cleaned_when_replace_fails(self):

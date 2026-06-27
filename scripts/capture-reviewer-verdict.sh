@@ -40,6 +40,16 @@ ROOT="$(context_reviews_dir)"
 # SubagentStop from a genuine re-review deterministically — see select_round.
 AGENT_ID="$(hook_str agent_id)"
 
+# COREDEV-2326: bind this capture to the round FROZEN at this subagent's SubagentStart
+# (scripts/capture-reviewer-round-start.sh), looked up by the SAME agent_id — so a late reviewer from
+# an earlier cycle lands in its ORIGINATING round regardless of completion order. Never clobber an
+# explicitly-set value; honor the kill switch; an absent/stale/foreign binding -> leave it unset ->
+# capture.py falls back to round inference (the shipped default). capture.py re-validates the value.
+if [ "${UNLEASHED_REVIEW_ROUND_SIGNAL:-on}" != "off" ] && [ -z "${UNLEASHED_REVIEW_ROUND:-}" ] && [ -n "$AGENT_ID" ]; then
+    _RS_ROUND="$(context_review_round_lookup "$AGENT" "$AGENT_ID" "$(hook_str session_id)" 2>/dev/null || true)"
+    case "$_RS_ROUND" in ''|*[!0-9]*) ;; *) export UNLEASHED_REVIEW_ROUND="$_RS_ROUND" ;; esac
+fi
+
 MSG="$(hook_str last_assistant_message)"
 if [ -n "$MSG" ]; then
     printf '%s' "$MSG" | python3 "$CAPTURE_PY" --root "$ROOT" --slug "$SLUG" --agent "$AGENT" --agent-id "$AGENT_ID" >/dev/null 2>&1 || true
@@ -49,4 +59,9 @@ else
         python3 "$CAPTURE_PY" --root "$ROOT" --slug "$SLUG" --agent "$AGENT" --agent-id "$AGENT_ID" --transcript "$TP" >/dev/null 2>&1 || true
     fi
 fi
+
+# Consume-once: drop this subagent's binding now that its stop has read it, so a duplicate SubagentStop
+# (or any later reader) can't re-use it. Best-effort; capture.py's cross-round agent_id dedup already
+# guards a true duplicate independently.
+[ -n "$AGENT_ID" ] && context_review_round_clear "$AGENT_ID" 2>/dev/null || true
 exit 0
