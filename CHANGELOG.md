@@ -37,7 +37,10 @@ from the host app's `MAJOR.MINORRELEASE.YYMMBB` scheme in `docs/VERSIONING.md`).
   `_STATUS_FIELDS` carry none — behaviourally identical, just collision-proof). Added a regression
   test asserting a duplicate (skipped) SubagentStop **preserves** an existing `BLOCKED`/`PARTIAL`
   sidecar untouched (`test_capture.py`, 142 → 143), pinning the early-return ordering that the
-  Item-12 guarantee depends on.
+  Item-12 guarantee depends on. Added a `context_latest_round_dir` leading-zero test
+  (`test-hooks.sh`, 103 → 104) that locks the base-10 (non-octal) `[ -gt ]` round comparison —
+  `round-08`/`round-09` order numerically and never raise a `value too great for base` error — so a
+  future refactor to `(( … ))` arithmetic can't silently regress it.
 
 ## [2.3.1] — 2026-06-26
 

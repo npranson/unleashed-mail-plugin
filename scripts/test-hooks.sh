@@ -504,6 +504,18 @@ mkdir -p "$LRD3/round-2" "$LRD3/round-99999999999999" "$LRD3/round-abc"
 GOT4="$(context_latest_round_dir "$LRD3" security-reviewer 2>/dev/null)"
 if [ "$GOT4" = "$LRD3/round-2" ]; then ok; else fail "latest_round_dir: ignore oversized/non-numeric suffix (got '$GOT4')"; fi
 
+# leading-zero round suffixes are decimal, NOT octal: the comparison is the POSIX `test` builtin
+# `[ "$n" -gt … ]` (base-10 strtoimax), not `(( … ))` arithmetic — so round-08/round-09 never raise
+# a `value too great for base` error and still order numerically. (Gemini PR #16 review verified a
+# non-issue; pinned here so a future refactor to `(( ))` arithmetic can't silently regress it.)
+LRD5="$TMPROOT/lrd5/slug"
+mkdir -p "$LRD5/round-1" "$LRD5/round-08" "$LRD5/round-09"
+: > "$LRD5/round-1/security-reviewer.json"
+: > "$LRD5/round-08/security-reviewer.json"
+: > "$LRD5/round-09/security-reviewer.json"
+GOT5="$(context_latest_round_dir "$LRD5" security-reviewer 2>/dev/null)"
+if [ "$GOT5" = "$LRD5/round-09" ]; then ok; else fail "latest_round_dir: leading-zero rounds are base-10 not octal (got '$GOT5')"; fi
+
 # zsh portability: the swift-reviewer Step-2 recipe runs in a zsh Bash-tool context, where an
 # unmatched glob aborts (NOMATCH). A round-less base must return clean+empty, not 'no matches found'.
 # Skipped where zsh is absent (e.g. Linux CI).
