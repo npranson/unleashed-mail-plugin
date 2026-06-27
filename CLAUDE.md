@@ -66,8 +66,10 @@ Create `docs/planning/FEATURE_NAME_PLAN.md` for any feature, refactoring, or mul
 
 Every plan or debug session must be reviewed by **both** Antigravity and Codex CLI before implementation begins:
 
-- `/unleashed-mail:gemini-review` — uses `gemini-3.1-pro` via Antigravity CLI (`agy`)
-- `/unleashed-mail:codex-review` — uses `codex exec -s read-only`
+- `/gemini-review` — uses `gemini-3.1-pro` via Antigravity CLI (`agy`)
+- `/codex-review` — uses `codex exec -s read-only`
+
+(Bare names are canonical in this workspace; the plugin also bundles them namespaced as `/unleashed-mail:gemini-review` / `/unleashed-mail:codex-review`.)
 
 Both must produce APPROVE / APPROVE_WITH_NOTES before code edits start. Iterate (typically 2–6 rounds) until both converge. Diagnostic agents (`xcode-build-fixer`, `graph-api-debugger`) propose fixes for the user to apply — they don't gate auto-fixes since the user is in the loop.
 
@@ -132,7 +134,8 @@ The project loads `.claude/rules/*.md` automatically based on file path. When ed
 Changes must be applied to both variants:
 - **AI Agent (GARI):** Docked panel (`AskAIWindowContentView`) + Floating window (`AskAIView`)
 - **Compose:** `NativeRichTextEditor` (macOS 26+) + `HTMLWebViewEditor` (macOS ≤25)
-- **Email Detail:** `SimpleEmailWebView` (production) + `EmailWebView`
+
+> **Email detail is no longer dual:** `SimpleEmailWebView` is the sole production email-body renderer; the legacy `EmailWebView` was removed. Display-path work targets `SimpleEmailWebView` only.
 
 ## Curator Design System
 
@@ -180,7 +183,7 @@ Categorize as **CRITICAL** (runs at startup) or **DEFERRABLE** (background after
 ## Repository Conventions
 
 - **Branch naming**: `1.0X/COREDEV-XXXX-short-description` off the matching version branch (`1.0X.0000`); use the Epic ticket key when a branch covers multiple child tickets. Hotfixes off the version branch, merged to BOTH the version branch AND `main`
-- **Versioning**: `MAJOR.MINORRELEASE.YYMMBB` per `docs/VERSIONING.md`. `MARKETING_VERSION` (e.g., `1.02`) is manual; `CURRENT_PROJECT_VERSION` (e.g., `1.02.260501`) has its `BB` byte **auto-bumped** by `scripts/bump-build-number.sh` (Scheme Pre-Action on Archive) and auto-committed by `scripts/post-archive-commit-bump.sh` (Post-Action). Current: `1.02.260501` (Beta).
+- **Versioning**: `MAJOR.MINORRELEASE.YYMMBB` per `docs/VERSIONING.md`. `MARKETING_VERSION` (e.g., `1.02`) is manual; `CURRENT_PROJECT_VERSION` has its `BB` byte **auto-bumped** by `scripts/bump-build-number.sh` from a **Run Script Build Phase on the app target** (install/Archive builds only — **not** a Scheme Pre-Action, which would bump one archive too late) and auto-committed by `scripts/post-archive-commit-bump.sh` (Scheme Post-Action). Current: `1.02.260601` (Beta) — `Config/Base.xcconfig` is authoritative.
 - **Trunk**: `main` is the integration trunk
 - **Commit messages**: `type(COREDEV-XXXX): description` — ticket is **mandatory**, not optional. Use the Epic ticket key when a commit spans multiple child tickets. Type prefixes: `feat`, `fix`, `chore`, `refactor`, `test`, `docs`
 - **Build**: `xcodebuild -scheme "Unleashed Mail"` — quote the scheme name (it contains a space)

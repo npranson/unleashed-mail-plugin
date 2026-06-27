@@ -162,6 +162,7 @@ In Xcode:
 
 CLI inspection only (cannot resolve from CLI for an xcodeproj):
 ```bash
+set -o pipefail   # surface resolution failures through the `| tail` pipe
 xcodebuild -resolvePackageDependencies -scheme "Unleashed Mail" \
     -destination 'platform=macOS' 2>&1 | tail -20
 ```

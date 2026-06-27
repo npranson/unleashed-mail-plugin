@@ -38,7 +38,8 @@ or business logic — those belong to other agents.
 This project has dual implementations — **always update both variants**:
 - **AI Agent (GARI):** Docked panel (`AskAIWindowContentView`) + Floating window (`AskAIView`)
 - **Compose:** Native editor + WebKit editor
-- **Email Detail:** `SimpleEmailWebView` + `EmailWebView`
+
+> **Email detail is no longer dual:** `SimpleEmailWebView` is the sole production renderer (the legacy `EmailWebView` was removed).
 
 ## Standards You Follow
 

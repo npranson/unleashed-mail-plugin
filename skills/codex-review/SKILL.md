@@ -1,11 +1,11 @@
 ---
 name: codex-review
-description: Read-only Codex CLI review for plans, debug sessions, and post-implementation audits. Paired with /unleashed-mail:gemini-review.
+description: Read-only Codex CLI review for plans, debug sessions, and post-implementation audits. Paired with /gemini-review.
 ---
 
 # Codex CLI Review
 
-All plans and debugging sessions must also be reviewed by Codex CLI — non-negotiable, runs alongside `/unleashed-mail:gemini-review` (not as a replacement). Post-implementation audits also run Codex.
+All plans and debugging sessions must also be reviewed by Codex CLI — non-negotiable, runs alongside `/gemini-review` (not as a replacement). Post-implementation audits also run Codex.
 
 Docs: https://developers.openai.com/codex/cli/reference
 
@@ -115,7 +115,7 @@ General form: `codex exec -s read-only "/<skill-name> [ARGS or FILES]"`
 
 **Infrastructure:** `/agent-orchestration`
 
-**Review tooling (v2.2.2):** `/unleashed-mail:gemini-review`, `/unleashed-mail:codex-review`, `/unleashed-mail:create-feature-plan`
+**Review tooling (v2.4.1):** `/gemini-review`, `/codex-review`, `/create-feature-plan` (canonical bare workspace names; the plugin also bundles them namespaced as `/unleashed-mail:gemini-review` etc.)
 
 If a skill is missing from a given install, list `~/.codex/skills/` before falling back to a free-form prompt.
 

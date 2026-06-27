@@ -49,7 +49,7 @@ Per [`docs/VERSIONING.md`](../../Unleashed%20Mail/docs/VERSIONING.md) and the ac
 `MARKETING_VERSION` = `MAJOR.MINORRELEASE` (e.g., `1.02`)
 `CURRENT_PROJECT_VERSION` = `MARKETING_VERSION.YYMMBB` (e.g., `1.02.260501`)
 
-**Current state**: `MARKETING_VERSION = 1.02` (Beta), `CURRENT_PROJECT_VERSION = 1.02.260501`.
+**Current state**: `MARKETING_VERSION = 1.02` (Beta), `CURRENT_PROJECT_VERSION = 1.02.260601`. (`Config/Base.xcconfig` is authoritative — the BB byte auto-bumps, so this literal ages; read the xcconfig rather than trusting it.)
 
 ### Version Progression Examples
 
@@ -67,7 +67,10 @@ Per [`docs/VERSIONING.md`](../../Unleashed%20Mail/docs/VERSIONING.md) and the ac
 The project ships **two scripts that automate build-number management**:
 
 - [`scripts/bump-build-number.sh`](../../Unleashed%20Mail/scripts/bump-build-number.sh)
-  — Scheme **Pre-Action** on the Archive action. On each archive:
+  — **Run Script Build Phase** on the app target (install/Archive builds only, gated by
+  `runOnlyForDeploymentPostprocessing = 1`), **not** a Scheme Pre-Action — a Pre-Action resolves
+  xcconfig before "Process Info.plist" and bumps one archive too late (confirmed empirically,
+  Xcode 16.1.1, 2026-04-29; see `docs/VERSIONING.md`). On each archive:
   - Verifies a clean working tree on the upstream branch
   - Reads `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` from `Config/Base.xcconfig`
   - If `MARKETING_VERSION` mismatches the xcconfig prefix → resets BB to `01`

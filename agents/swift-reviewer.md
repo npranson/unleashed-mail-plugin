@@ -19,7 +19,7 @@ the project's mandatory processes, and own the final verdict.
 
 **Project conventions**: MVVM with `@Observable` · SQLCipher-encrypted GRDB · SwiftLint enforced ·
 functions ≤50 lines · files ≤600 lines · `PIIRedactor` for logging · `account_email` filter on all queries ·
-dual implementations (native + WebKit compose, simple + full email detail, docked + floating AI)
+dual implementations (native + WebKit compose, docked + floating AI; email detail is single-renderer — `SimpleEmailWebView` only)
 
 ## Review Orchestration
 
@@ -321,9 +321,12 @@ set -o pipefail   # REQUIRED: without it, `| tail` returns tail's 0 and masks a 
 xcodebuild build -scheme "Unleashed Mail" -destination 'platform=macOS' 2>&1 | tail -10
 BUILD=$?; [ "$BUILD" -eq 0 ] && echo "✅ build" || echo "❌ build FAILED (exit $BUILD)"
 
-# SwiftLint — must be clean
-swiftlint --strict --quiet 2>&1 | tail -20
-LINT=$?; [ "$LINT" -eq 0 ] && echo "✅ lint" || echo "❌ lint FAILED (exit $LINT)"
+# SwiftLint — both arms of the merge gate (AGENT_CONTRACTS §5):
+#   (1) changed .swift files strict (warnings→errors); (2) whole-repo strict with the committed
+#   baseline so only NEW violations fail (existing NSRegularExpression backlog baselined — COREDEV-2290)
+git diff --name-only "${BASE:-origin/main}"...HEAD -- '*.swift' | tr '\n' '\0' | xargs -0r swiftlint --strict --quiet 2>&1 | tail -20; CHANGED_LINT=$?
+swiftlint lint --strict --baseline swiftlint-baseline.json --quiet 2>&1 | tail -20; BASELINE_LINT=$?
+LINT=$(( CHANGED_LINT | BASELINE_LINT )); [ "$LINT" -eq 0 ] && echo "✅ lint" || echo "❌ lint FAILED (changed=$CHANGED_LINT baseline=$BASELINE_LINT)"
 
 # Tests — must pass
 xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS' 2>&1 | tail -30

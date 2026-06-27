@@ -91,6 +91,7 @@ After all three agents complete:
 
 2. **Run the full test suite**:
    ```bash
+   set -o pipefail   # without it, `| tail` returns 0 and masks a failing xcodebuild
    xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS' 2>&1 | tail -30
    ```
 
@@ -100,10 +101,10 @@ After all three agents complete:
    grep -rn "GmailMailProvider\|GraphMailProvider" --include='*.swift' "Unleashed Mail/Sources/ViewModels/" "Unleashed Mail/Sources/Views/"
    ```
 
-4. **Commit with conventional format**:
+4. **Commit with conventional format** (the COREDEV ticket key is mandatory, not optional):
    ```bash
    git add <specific-changed-files>
-   git commit -m "feat: [description]"
+   git commit -m "feat(COREDEV-XXXX): [description]"
    ```
 
 ## Phase 5: Multi-Agent Review

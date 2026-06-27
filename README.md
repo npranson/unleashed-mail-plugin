@@ -1,4 +1,4 @@
-# UnleashedMail — Claude Code Plugin v2.4.0
+# UnleashedMail — Claude Code Plugin v2.4.1
 
 A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email client supporting Gmail and Microsoft Graph, built with Swift 6, SwiftUI, AppKit, WKWebView, GRDB.swift (SQLCipher), and MVVM architecture.
 
@@ -7,6 +7,18 @@ A multi-agent development plugin for **UnleashedMail**, a native macOS 15+ email
 > v2.2.0 introduces [`AGENT_CONTRACTS.md`](AGENT_CONTRACTS.md) — the source of truth for cross-agent boundaries (release contract, plan-implement gate, data→logic→ui handoff, AI pipeline ownership, code review pipeline, CI pinning, MCP tool prefixes, mandatory project gates). When two agents disagree about a boundary, the contracts doc wins.
 
 ## What's New
+
+### v2.4.1
+
+- **Host-app documentation sync (COREDEV-2335)** — corrected seven stale/contradictory spots where the plugin's docs/agents had drifted from the host app (`Unleashed Mail`); each was independently verified against both repos and adversarially cross-checked. Plugin-only scope (no app-repo edits); no agents/skills/commands added (counts stay 21 · 18 · 3 · 1).
+  - **SwiftLint gate** now documented as the app's two-pronged form — changed-file `swiftlint --strict <files>` **plus** whole-repo `swiftlint lint --strict --baseline swiftlint-baseline.json` (the committed baseline suppresses the pre-existing `NSRegularExpression` backlog — COREDEV-2290) — replacing the bare `swiftlint --strict` that would have promoted the whole baselined backlog to errors.
+  - **Build-number automation** reworded to a **Run Script Build Phase on the app target** (install/Archive builds only), **not** a Scheme Pre-Action (a Pre-Action bumps one archive too late — see `docs/VERSIONING.md`); current build corrected to `1.02.260601`, with `Config/Base.xcconfig` flagged authoritative.
+  - **Email-detail dual-implementation** guidance dropped — `SimpleEmailWebView` is the sole renderer (`EmailWebView` was removed).
+  - **Commit policy** made mandatory — every commit carries a `COREDEV-XXXX` ticket key (was documented as "optional").
+  - **Review commands** — bare workspace names (`/gemini-review`, `/codex-review`, `/create-feature-plan`) documented as canonical, with the plugin's `/unleashed-mail:*` forms as the bundled alias; stale `v2.2.2` self-references corrected.
+  - **`set -o pipefail`** added to piped `xcodebuild` blocks (`implement` / `pr-review` + four skill/agent examples) so a failing build/test can't be masked by `| tail`.
+  - **Synthesizer test count** corrected `78` → `159`.
+  - (An eighth audit finding — the reviewer Output-Contract capture claim — was already resolved by COREDEV-2328 in 2.4.0 and needed no change.)
 
 ### v2.4.0
 
@@ -185,7 +197,7 @@ claude --plugin-dir /path/to/unleashed-mail-plugin   # session-scoped, no market
 | `docs-engineer` | README, API docs (DocC via xcodebuild), user guides, planning docs, architecture, roadmap |
 | `xcode-build-fixer` | Diagnoses and proposes fixes for Xcode build / package resolution failures (Ask-before for dependency changes) |
 | `graph-api-debugger` | Microsoft Graph / MSAL auth troubleshooting (Ask-before for auth/entitlements edits) |
-| `ci-engineer` | GitHub Actions workflows (SHA-pinned), Xcode Cloud, build automation, coordination with `bump-build-number.sh` Pre/Post-Action scripts |
+| `ci-engineer` | GitHub Actions workflows (SHA-pinned), Xcode Cloud, build automation, coordination with the `bump-build-number.sh` Run Script Build Phase + `post-archive-commit-bump.sh` Post-Action |
 | `release-manager` | `MAJOR.MINORRELEASE.YYMMBB` versioning, App Store / TestFlight submission, defers BB-byte to automation |
 
 ## Skills (18) — Auto-activate based on context
@@ -233,14 +245,14 @@ Agents are designed for **flexible parallel execution** in any combination. The 
 The plugin enforces these non-negotiable processes:
 
 1. **Planning document** — `docs/planning/FEATURE_NAME_PLAN.md` for every feature (no exceptions)
-2. **Plan review gate** — Every plan or debug session must be reviewed by **both** `/unleashed-mail:gemini-review` (Antigravity CLI `agy`) and `/unleashed-mail:codex-review` before implementation. Both must produce APPROVE / APPROVE_WITH_NOTES; iterate (typically 2–6 rounds) until both converge.
+2. **Plan review gate** — Every plan or debug session must be reviewed by **both** `/gemini-review` (Antigravity CLI `agy`) and `/codex-review` before implementation. Both must produce APPROVE / APPROVE_WITH_NOTES; iterate (typically 2–6 rounds) until both converge. (Bare workspace names are canonical; the plugin also bundles them as `/unleashed-mail:gemini-review` / `/unleashed-mail:codex-review`.)
 3. **Context7 usage** — Mandatory for code generation, setup, config, API docs lookup
 4. **Jira ticket hygiene** — Every change tracked at `https://unleashedservices.atlassian.net/` (project key `COREDEV`), updated throughout, with Epic association
 5. **Provider parity** — Gmail ↔ Graph implementations stay in sync; views/ViewModels obtain providers via `AccountScopedServiceProvider`, never concrete types
 6. **Accessibility** — Every UI element gets a11y support (mandatory per CLAUDE.md); use Curator design tokens
 7. **Security invariants** — SQLCipher encryption, Keychain-only tokens, `account_email` filtering, PIIRedactor, two-layer HTML sanitization (`HTMLSanitizer` + `HTMLRenderPipeline`)
 8. **SwiftLint compliance** — Fix violations in any file you modify (functions ≤50 lines, files ≤600 lines); violations in *unmodified* files are ticketed, not fixed in-flight. Lone exception: legacy `NSRegularExpression` is left for the Swift `Regex`/`RegexBuilder` migration (suppressed + ticketed, not converted inline)
-9. **Dual implementations** — Changes applied to both variants (native + WebKit compose, simple + full email detail, docked + floating AI)
+9. **Dual implementations** — Changes applied to both variants (native + WebKit compose, docked + floating AI). *Email detail is no longer dual — `SimpleEmailWebView` is the sole renderer.*
 10. **Ask-before checkpoints** — Don't auto-edit Xcode project structure, entitlements, Info.plist, app lifecycle, menus, toolbar, keyboard shortcuts, auth/token handling, or framework/SwiftPM dependencies. Surface for user approval first.
 
 See [`AGENT_CONTRACTS.md`](AGENT_CONTRACTS.md) for the cross-agent boundaries that operationalize these processes.
@@ -274,7 +286,7 @@ The plugin bundles one local, zero-dependency **stdio MCP server**, declared in 
 
 - **Pure compute** — no repo access, no network, no secrets. The repo-reading half (the verify gate) stays in `swift-reviewer`, which is the only side that can open `file:line`.
 - **Agent tool name:** `mcp__plugin_unleashed-mail_review-synthesizer__synthesize_review` (in `swift-reviewer`'s `allowed-tools`). The orchestrator falls back to the documented rules in [`mcp/review-synthesizer/README.md`](mcp/review-synthesizer/README.md) if the server is unavailable.
-- **Source + tests:** [`mcp/review-synthesizer/`](mcp/review-synthesizer/) — run `python3 -m unittest discover -s mcp/review-synthesizer/tests` (78 cases, stdlib only).
+- **Source + tests:** [`mcp/review-synthesizer/`](mcp/review-synthesizer/) — run `python3 -m unittest discover -s mcp/review-synthesizer/tests` (159 cases, stdlib only).
 
 ## Baked-In Knowledge
 

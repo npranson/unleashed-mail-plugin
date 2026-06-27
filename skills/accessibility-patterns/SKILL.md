@@ -274,7 +274,7 @@ ProgressView("Sending email...", value: progress)
 
 ## Dual Implementation Accessibility
 
-Since UnleashedMail has dual implementations (native + WebKit compose, simple + full email detail), both must be equally accessible:
+Since UnleashedMail has dual implementations (native + WebKit compose; docked + floating AI), both must be equally accessible. (Email detail is single-renderer — `SimpleEmailWebView` only — so it has no dual-renderer parity requirement.)
 
 ### Compose Editor
 
@@ -292,16 +292,13 @@ WebView(html: composeHTML)
 
 ### Email Detail
 
+`SimpleEmailWebView` is the sole production email-body renderer (the legacy second renderer was removed), so there is no dual-renderer parity requirement here — just ensure the single renderer is accessible:
+
 ```swift
-// Simple WebView
+// SimpleEmailWebView — the sole production email-body renderer
 WebView(html: messageHTML)
     .accessibilityLabel("Email content")
-    .accessibilityHint("Read the full content of the email")
-
-// Full WebView (with additional features)
-WebView(html: enhancedHTML)
-    .accessibilityLabel("Email content with attachments")
-    .accessibilityHint("Read the email and access attachments")
+    .accessibilityHint("Read the full content of the email, including attachments")
 ```
 
 ## Compliance Standards

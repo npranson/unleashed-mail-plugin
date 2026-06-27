@@ -82,6 +82,7 @@ a consolidated issue table, and a single verdict.
 While the review agents work:
 
 ```bash
+set -o pipefail   # without it, `| tail` returns 0 and masks a failing xcodebuild
 # Full test run
 xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS' 2>&1 | tail -40
 

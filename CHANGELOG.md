@@ -13,6 +13,49 @@ from the host app's `MAJOR.MINORRELEASE.YYMMBB` scheme in `docs/VERSIONING.md`).
 
 ## [Unreleased]
 
+## [2.4.1] — 2026-06-27
+
+Host-app documentation sync (COREDEV-2335) — corrects seven stale/contradictory spots where the
+plugin's docs/agents had drifted from the host app (`Unleashed Mail`). Each finding was independently
+verified against both repos and adversarially cross-checked before editing. Plugin-only scope (no
+app-repo edits); no agents/skills/commands added (counts stay 21 · 18 · 3 · 1). (An eighth audit
+finding — the reviewer Output-Contract capture claim — was already resolved by COREDEV-2328 in 2.4.0
+and needed no change.)
+
+### Changed
+- **Review-command invocation model** — bare workspace names (`/gemini-review`, `/codex-review`,
+  `/create-feature-plan`) are documented as **canonical** across the plugin's docs, agents, and
+  skills; the plugin's `/unleashed-mail:*` forms remain as the bundled alias (`review-synthesis`
+  stays namespaced — it has no bare workspace copy). Per user decision.
+- **Build-number mechanism** reworded everywhere from "Scheme Pre-Action on Archive" to a **Run
+  Script Build Phase on the app target** (install/Archive builds only, **not** a Pre-Action — a
+  Pre-Action bumps one archive too late; see `docs/VERSIONING.md`). The Post-Action commit/push
+  script is retained.
+- **Plugin bumped to 2.4.1.** `README.md` H1 + What's-New updated; asset counts unchanged.
+
+### Fixed
+- **SwiftLint merge gate** — replaced bare `swiftlint --strict` with the app's two-pronged gate
+  (changed-file `swiftlint --strict <files>` + whole-repo `swiftlint lint --strict --baseline
+  swiftlint-baseline.json`; the committed baseline suppresses the pre-existing `NSRegularExpression`
+  backlog — COREDEV-2290) across 11 references; running the bare whole-repo form would have failed
+  every gate.
+- **Stale build number** `1.02.260501` → `1.02.260601`; `Config/Base.xcconfig` flagged authoritative
+  so the literal can't silently re-drift.
+- **Obsolete dual email-detail guidance** removed across the plugin docs, agents, and skills
+  (`CLAUDE.md`, `README`, `swift-reviewer`, `ui-engineer`, `accessibility-auditor`,
+  `accessibility-patterns`); `SimpleEmailWebView` is the sole production renderer (`EmailWebView`
+  was removed). `swift-reviewer`'s verify step now runs **both** SwiftLint arms (changed-file
+  strict + whole-repo baseline), matching the host app's gate.
+- **Commit/ticket policy** in `AGENT_CONTRACTS.md` and `commands/implement.md` made **mandatory**
+  (was "optional"), matching the host app's `type(COREDEV-XXXX): description` rule.
+- **Stale plugin self-references** `v2.2.2` → current (`codex-review` skill, AGENT_CONTRACTS
+  cross-references).
+- **`set -o pipefail`** added to six piped-`xcodebuild` blocks (`commands/implement.md`,
+  `commands/pr-review.md`, `swift-tdd`, `spm-management`, `xcode-build-fixer`) so a failing
+  build/test isn't masked by `| tail`.
+- **Synthesizer test count** `78` → `159` in the live `README.md` reference (verified: the suite
+  runs 159).
+
 ## [2.4.0] — 2026-06-27
 
 ### Added

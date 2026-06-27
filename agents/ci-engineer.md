@@ -88,7 +88,9 @@ jobs:
       - name: Install SwiftLint
         run: brew install swiftlint
       - name: Run SwiftLint
-        run: swiftlint --strict --reporter github-actions-logging
+        # Whole-repo gate uses the committed baseline so only NEW violations fail (COREDEV-2290);
+        # changed-file strictness (`swiftlint --strict <files>`) is enforced separately on touched files.
+        run: swiftlint lint --strict --baseline swiftlint-baseline.json --reporter github-actions-logging
 
   build:
     runs-on: macos-15
@@ -117,8 +119,8 @@ For Apple-managed CI:
 # ci_post_xcodebuild.sh (Xcode Cloud post-build script)
 #!/bin/bash
 
-# Run additional checks
-swiftlint --strict
+# Run additional checks (whole-repo gate uses the committed baseline — only NEW violations fail, COREDEV-2290)
+swiftlint lint --strict --baseline swiftlint-baseline.json
 
 # Generate test coverage report
 xcrun xccov view --report /path/to/TestResults.xcresult --json > coverage.json
@@ -213,12 +215,12 @@ build:
 
 ## Release Automation — coordinate with `bump-build-number.sh`
 
-> **Critical:** the project ships [`scripts/bump-build-number.sh`](../../Unleashed%20Mail/scripts/bump-build-number.sh) as a **Scheme Pre-Action on Archive** and [`post-archive-commit-bump.sh`](../../Unleashed%20Mail/scripts/post-archive-commit-bump.sh) as the **Post-Action**. They mutate `Config/Base.xcconfig` and manage a `Config/.bump-build-number.pending` sentinel. CI workflows that run `xcodebuild archive` will trigger these scripts.
+> **Critical:** the project ships [`scripts/bump-build-number.sh`](../../Unleashed%20Mail/scripts/bump-build-number.sh) as a **Run Script Build Phase on the app target** (install/Archive builds only — **not** a Scheme Pre-Action, which bumps one archive too late; see `docs/VERSIONING.md`) and [`post-archive-commit-bump.sh`](../../Unleashed%20Mail/scripts/post-archive-commit-bump.sh) as the Scheme **Post-Action**. They mutate `Config/Base.xcconfig` and manage a `Config/.bump-build-number.pending` sentinel. CI workflows that run `xcodebuild archive` will trigger these scripts.
 >
 > `release-manager` (per `AGENT_CONTRACTS.md §1`) owns the version contract; CI must NOT race
 > the scripts. Concretely, in CI:
 >
-> 1. **Do not pre-bump the version in CI** — the Pre-Action handles it
+> 1. **Do not pre-bump the version in CI** — the Run Script Build Phase handles it
 > 2. **Do not commit `Config/Base.xcconfig` from CI** — the Post-Action handles it (locally; on
 >    a CI runner the auto-commit + push will fail without write credentials, which is a feature, not a bug)
 > 3. **Inspect `.bump-build-number.pending` after archive** — if it remains, the post-action
@@ -244,7 +246,7 @@ jobs:
             echo "::error::Config/.bump-build-number.pending exists — prior archive did not commit. Resolve manually before re-running."
             exit 1
           fi
-      - name: Build release (Pre-Action runs bump-build-number.sh automatically)
+      - name: Build release (the Run Script Build Phase runs bump-build-number.sh automatically)
         run: |
           xcodebuild -scheme "Unleashed Mail" \
             -configuration Release \
