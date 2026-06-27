@@ -85,6 +85,8 @@ While the review agents work:
 set -o pipefail   # without it, `| tail` returns 0 and masks a failing xcodebuild
 # Full test run
 xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS' 2>&1 | tail -40
+TEST_STATUS=$?   # capture immediately — the base-detection commands below clobber $?
+[ "$TEST_STATUS" -eq 0 ] && echo "✅ tests passed" || echo "❌ tests FAILED (exit $TEST_STATUS) — resolve before merging"
 
 # Re-detect base branch (each bash block is a fresh shell — can't rely on
 # Step 1's variable surviving)
