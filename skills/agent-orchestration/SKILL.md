@@ -34,7 +34,7 @@ allowed-tools: Agent, Read, Grep, Glob, Bash
 > **Ownership notes.** `concurrency-reviewer` is the **correctness owner** — general
 > logic/error-handling bugs that the other three reviewers explicitly punt land here.
 > Judgment-based code style beyond SwiftLint is owned by `code-simplifier` (runs first,
-> per AGENT_CONTRACTS §5) + `swiftlint --strict`, not the reviewers. `swift-reviewer`
+> per AGENT_CONTRACTS §5) + the SwiftLint merge gate (`swiftlint --strict <changed files>` + whole-repo `--baseline`), not the reviewers. `swift-reviewer`
 > owns provider-parity, test-coverage, and build/lint/test (`verification`) findings and
 > emits them as structured rows (categories `parity` / `test-coverage` / `verification`)
 > so they are first-class in dedup and the verdict.

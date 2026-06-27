@@ -175,7 +175,7 @@ Both variants are equally important — a parity gap in a11y is a **BLOCKER**.
 # Check both compose editors
 grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' . | grep -i "compose\|editor"
 
-# Check both email detail views
+# Check the email detail view (SimpleEmailWebView — the sole production renderer)
 grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' . | grep -i "email.*web\|simple.*email"
 
 # Check both AI agent views
@@ -183,7 +183,7 @@ grep -rn "accessibilityLabel\|accessibilityHint" --include='*.swift' . | grep -i
 ```
 
 - [ ] Native compose editor AND WebKit compose editor both accessible — **🔴 BLOCKER if one has a11y and the other doesn't**
-- [ ] `SimpleEmailWebView` AND `EmailWebView` both accessible — **🔴 BLOCKER if mismatched**
+- [ ] `SimpleEmailWebView` (sole production email-body renderer) is accessible — **🔴 BLOCKER if missing** (the legacy `EmailWebView` was removed; no dual-renderer parity to check)
 - [ ] Docked AI panel (`AskAIWindowContentView`) AND floating window (`AskAIView`) both accessible — **🔴 BLOCKER if mismatched**
 
 **Severity rules for dual implementations:**

@@ -26,13 +26,16 @@ Two xcconfig fields:
 - `MARKETING_VERSION` = `MAJOR.MINORRELEASE` (manual, e.g., `1.02`)
 - `CURRENT_PROJECT_VERSION` = full `MARKETING_VERSION.YYMMBB` (e.g., `1.02.260501`)
 
-Current state: `1.02.260501` (Beta).
+Current state: `1.02.260601` (Beta) — `Config/Base.xcconfig` is authoritative (the BB byte auto-bumps, so don't trust this literal once it ages).
 
 > **BB byte is automated.** [`scripts/bump-build-number.sh`](../Unleashed%20Mail/scripts/bump-build-number.sh)
-> runs as a Scheme Pre-Action on Archive and increments BB; the Post-Action
-> [`post-archive-commit-bump.sh`](../Unleashed%20Mail/scripts/post-archive-commit-bump.sh) commits
-> and pushes the bump. `release-manager` MUST NOT manually edit BB — racing the script
-> corrupts the `.bump-build-number.pending` sentinel.
+> runs from a **Run Script Build Phase on the app target** (install/Archive builds only, gated by
+> `runOnlyForDeploymentPostprocessing = 1`) and increments BB — **not** a Scheme Pre-Action. Pre-Actions
+> run before "Process Info.plist," so a Pre-Action bump lands one archive too late (confirmed empirically,
+> Xcode 16.1.1, 2026-04-29); see [`docs/VERSIONING.md`](../Unleashed%20Mail/docs/VERSIONING.md). A successful
+> bump drops the gitignored `.bump-build-number.pending` sentinel that blocks the next archive until the bump
+> is committed; the Scheme Post-Action [`post-archive-commit-bump.sh`](../Unleashed%20Mail/scripts/post-archive-commit-bump.sh)
+> commits and pushes it. `release-manager` MUST NOT manually edit BB — racing the script corrupts the sentinel.
 
 ### Branch convention
 
@@ -46,7 +49,7 @@ Current state: `1.02.260501` (Beta).
 
 ### Commit format
 
-Conventional commits with optional Jira ticket: `feat(COREDEV-1234): ...`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`.
+Conventional commits with a **mandatory** COREDEV ticket key: `feat(COREDEV-1234): ...`, `fix(COREDEV-1234): ...`, `docs(COREDEV-1234): ...`, `test(COREDEV-1234): ...`, `refactor(COREDEV-1234): ...`, `chore(COREDEV-1234): ...`. The ticket key is required, not optional — it makes the PR searchable and drives Jira's GitHub dev-panel integration. Use the Epic key when a commit spans multiple child tickets.
 
 ### Changelog ownership
 
@@ -57,7 +60,7 @@ time; `jira-manager` provides ticket summaries.
 
 A PR cannot merge to `main` (or to the version branch) without:
 1. Build green (xcodebuild)
-2. SwiftLint green (`swiftlint --strict`)
+2. SwiftLint green — changed files via `swiftlint --strict <changed files>`; whole repo via `swiftlint lint --strict --baseline swiftlint-baseline.json` (the committed baseline suppresses the pre-existing NSRegularExpression backlog so only NEW violations fail — COREDEV-2290)
 3. Tests green (xcodebuild test)
 4. `swift-reviewer` verdict: APPROVE
 5. Provider parity audit: PASS or `// TODO: PARITY` with tracked Jira ticket
@@ -69,14 +72,14 @@ A PR cannot merge to `main` (or to the version branch) without:
 ### Plan creation
 
 Every feature, refactor, or multi-step development requires `docs/planning/FEATURE_NAME_PLAN.md`.
-Use the plugin's `/unleashed-mail:create-feature-plan` skill to scaffold.
+Use the `/create-feature-plan` skill to scaffold (bundled as `/unleashed-mail:create-feature-plan`; the bare workspace name is canonical — see Cross-references).
 
 ### Plan review gate (mandatory)
 
 Before any implementation begins:
 
-1. Plan author runs `/unleashed-mail:gemini-review` (uses `gemini-3.1-pro` via Antigravity CLI `agy`)
-2. Plan author runs `/unleashed-mail:codex-review` (uses `codex exec -s read-only`)
+1. Plan author runs `/gemini-review` (uses `gemini-3.1-pro` via Antigravity CLI `agy`)
+2. Plan author runs `/codex-review` (uses `codex exec -s read-only`)
 3. **Both must produce APPROVE / APPROVE_WITH_NOTES** before implementation starts
    - **(3a)** Once both transcripts are captured, run `/unleashed-mail:review-synthesis` to combine them into a single auditable **Combined verdict** block (`APPROVE | APPROVE_WITH_NOTES | REQUEST_CHANGES | DISAGREEMENT`) — the record that this gate passed, with any divergence surfaced as `DISAGREEMENT` (never averaged) and a missing/empty transcript never counted as approval. This is the **plan-review** synthesizer (2 prose transcripts); keep it distinct from the code-review `synthesize_review` MCP tool (5 JSON findings arrays, `APPROVE_WITH_SUGGESTIONS` / `NEEDS_DISCUSSION`) used in §5.
 4. Iterate (typically 2–6 rounds) until both converge
@@ -204,7 +207,7 @@ null-delimited (`-print0` / `-0`) or quoted paths.
 
 `swift-reviewer` must verify:
 - Build green (`xcodebuild build`)
-- SwiftLint green (`swiftlint --strict`)
+- SwiftLint green — `swiftlint --strict <changed files>` on touched files plus whole-repo `swiftlint lint --strict --baseline swiftlint-baseline.json` (the committed baseline suppresses the existing backlog — COREDEV-2290)
 - Tests green (`xcodebuild test`)
 - All sub-reviewer JSON findings collected, run through the `synthesize_review` MCP tool (or the documented fallback rules), and every gating blocker confirmed via the verify gate before REQUEST CHANGES
 
@@ -307,7 +310,10 @@ not block implementation).
   `Unleashed Mail/Sources/Services/CLAUDE.md`, `Unleashed Mail/Sources/Views/CLAUDE.md`,
   `Unleashed Mail/Sources/Models/CLAUDE.md`, `Unleashed Mail/Sources/Utilities/CLAUDE.md`,
   `Unleashed Mail/Sources/Components/CLAUDE.md`, `Unleashed Mail/Sources/ViewModels/CLAUDE.md`
-- Review skills (v2.2.2+, shipped with plugin): `/unleashed-mail:gemini-review`,
-  `/unleashed-mail:codex-review`. Skill sources at `skills/gemini-review/SKILL.md`,
-  `skills/codex-review/SKILL.md`. The earlier workspace-only `.claude/prompts/*.md`
-  files were retired when the skills moved into the plugin.
+- Review skills (shipped with the plugin, current v2.4.1): the **canonical** workspace invocation is the
+  bare `/gemini-review` / `/codex-review` / `/create-feature-plan` — the host app ships local copies and
+  prefers them over the plugin's generic ones. The plugin also bundles them namespaced as
+  `/unleashed-mail:gemini-review` / `/unleashed-mail:codex-review` / `/unleashed-mail:create-feature-plan`
+  (use the namespaced form only where no bare workspace copy exists). Skill sources at
+  `skills/gemini-review/SKILL.md`, `skills/codex-review/SKILL.md`. The earlier workspace-only
+  `.claude/prompts/*.md` files were retired when the skills moved into the plugin.

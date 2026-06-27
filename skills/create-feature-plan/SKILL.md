@@ -61,5 +61,5 @@ Open questions, alternatives considered, lessons learned.
 ## After scaffolding
 
 1. Update the Jira ticket (Task / Bug) with a link to the plan file.
-2. Run `/unleashed-mail:gemini-review` and `/unleashed-mail:codex-review` on the plan before any code is written.
+2. Run `/gemini-review` and `/codex-review` on the plan before any code is written.
 3. Incorporate reviewer feedback into the plan doc before the implementation batch begins.

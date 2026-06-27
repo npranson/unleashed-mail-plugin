@@ -88,6 +88,7 @@ Xcode releases.
 ### Step 6: Verify
 
 ```bash
+set -o pipefail   # without it, `| tail` returns 0 and masks a failing xcodebuild
 xcodebuild build \
   -scheme "Unleashed Mail" \
   -destination 'platform=macOS,arch=arm64' \

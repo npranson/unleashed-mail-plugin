@@ -51,6 +51,7 @@ Use this workflow whenever you are:
 
 4. **Run the test and confirm it fails**:
    ```bash
+   set -o pipefail   # surface xcodebuild's real exit through the `| tail` pipe
    xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS' \
        -only-testing:"Unleashed MailTests/InboxViewModelTests/test_fetchEmails_updatesMessageList" 2>&1 | tail -20
    ```
@@ -63,6 +64,7 @@ Use this workflow whenever you are:
 3. Run the single test again and confirm it passes.
 4. Run the full test suite to ensure no regressions:
    ```bash
+   set -o pipefail   # without it, `| tail` returns 0 and masks a failing xcodebuild
    xcodebuild test -scheme "Unleashed Mail" -destination 'platform=macOS' 2>&1 | tail -30
    ```
 

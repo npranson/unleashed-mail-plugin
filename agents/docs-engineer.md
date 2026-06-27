@@ -282,7 +282,7 @@ Maintain `CONTRIBUTING.md` (template — confirm repo URL with user):
 2. Branch: `1.0X/feature-name` off the matching version branch (e.g., `1.02/coredev-1234-foo` for Beta features)
 3. Write tests first (TDD)
 4. Implement feature
-5. Run full test suite (`xcodebuild test`) and SwiftLint (`swiftlint --strict`)
+5. Run full test suite (`xcodebuild test`) and SwiftLint — changed files via `swiftlint --strict <changed files>`, whole repo via `swiftlint lint --strict --baseline swiftlint-baseline.json`
 6. Create PR targeting the **version branch** (`1.0X.0000`), not `main`
 7. Get review from `swift-reviewer` agent
 

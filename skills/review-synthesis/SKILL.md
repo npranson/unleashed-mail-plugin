@@ -1,6 +1,6 @@
 ---
 name: review-synthesis
-description: Synthesize the two plan-review transcripts (gemini + codex) into one auditable combined-verdict block. Read-only; run AFTER both /unleashed-mail:gemini-review and /unleashed-mail:codex-review transcripts are captured, before implementation begins.
+description: Synthesize the two plan-review transcripts (gemini + codex) into one auditable combined-verdict block. Read-only; run AFTER both /gemini-review and /codex-review transcripts are captured, before implementation begins.
 allowed-tools: Read, Grep
 ---
 
@@ -11,8 +11,8 @@ proof that the `AGENT_CONTRACTS.md §2` "both reviewers must return APPROVE / AP
 passed, with any disagreement **surfaced** rather than averaged away. It runs nothing and gates nothing
 automatically; it produces a Markdown block for the human running the gate.
 
-Run it **after** both review transcripts are captured (see `/unleashed-mail:gemini-review` and
-`/unleashed-mail:codex-review`):
+Run it **after** both review transcripts are captured (see `/gemini-review` and
+`/codex-review`):
 
 - gemini → `/tmp/agy-out.txt`  (Antigravity `agy`, free-form plaintext)
 - codex  → `/tmp/codex-out.txt` (`codex exec`, free-form plaintext)
