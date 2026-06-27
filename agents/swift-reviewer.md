@@ -142,16 +142,18 @@ reviewers trace the rest and tag findings outside the diff with `scope:
 
 **If the four reviewers' JSON arrays were already provided to you** (an external
 orchestrator ran them per SKILL.md), skip spawning and go straight to Step 3 — do not
-re-run them. **Each pre-collected array should arrive with its reviewer's Output Contract
-`Status:`** (`COMPLETE | BLOCKED | PARTIAL`). If a status is **missing**, handle by array shape —
-a capture step may have persisted only the JSON and dropped the status line:
-- **empty `[]`, no status** → ambiguous (a clean pass and a `BLOCKED` reviewer reduced to `[]`
-  are indistinguishable): re-run that reviewer; if it cannot be re-run, treat it as `BLOCKED` — a
-  Needs-Confirmation uncertainty → NEEDS DISCUSSION (Step 5), never a clean `[]`.
-- **non-empty array, no status** → **keep the findings** (run them through synthesis + the verify
-  gate as normal — they are real and must not be deferred to NEEDS DISCUSSION), and *separately*
-  record the missing status as a Needs-Confirmation uncertainty (you can't confirm that domain's
-  review actually *finished*).
+re-run them. The `Status:` line is part of each reviewer's report, so when you have a reviewer's
+**full output** (prose + JSON) read it and apply the BLOCKED/PARTIAL handling from Step 5.
+**The shipped `SubagentStop` capture path (`mcp/review-synthesizer/capture.py`) currently persists
+only the sanitized findings array — not the `Status:` line** (tracked: COREDEV-2328). So a
+pre-collected array with **no status is the expected shape from that capture path**, not evidence
+that a reviewer was BLOCKED — **do not fail closed on it**: take the findings at face value (an empty
+`[]` is the reviewer's clean result; a non-empty array is its findings), exactly as before Item 12.
+Item 12's stronger guarantee — that a `BLOCKED` reviewer can't masquerade as a clean `[]` —
+therefore holds wherever the status travels with the findings (the live subagent runs you spawn
+below, or once COREDEV-2328 persists it through capture); for a status-stripped captured array it
+degrades to the pre-Item-12 behaviour, never worse. When a status **is** present and reads `BLOCKED`
+or `PARTIAL`, apply Step 5's handling.
 
 Otherwise spawn **all four** review agents simultaneously using the
 `Agent` tool, plus `jira-manager` to log the review. Pass each agent the list of
