@@ -113,7 +113,7 @@ The user can request any combination:
    ↓
 4. ui-engineer + jira-manager milestone (parallel)
    ↓
-5. security-reviewer + concurrency-reviewer + ux-perf-reviewer + accessibility-auditor (parallel)
+5. security-reviewer + concurrency-reviewer + ux-perf-reviewer + accessibility-auditor + prompt-review (parallel)
    ↓
 6. swift-reviewer (synthesizes) + jira-manager final update (parallel)
 ```
@@ -121,7 +121,7 @@ The user can request any combination:
 ### Pattern B: Review Only
 
 ```
-1. security-reviewer + concurrency-reviewer + ux-perf-reviewer + accessibility-auditor (all parallel)
+1. security-reviewer + concurrency-reviewer + ux-perf-reviewer + accessibility-auditor + prompt-review (all parallel)
    ↓
 2. swift-reviewer synthesizes + jira-manager logs review results
 ```
