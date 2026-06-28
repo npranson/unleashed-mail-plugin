@@ -135,7 +135,17 @@ def validate_matcher(event: str, matcher: str, where: str,
             return
         for raw in re.split(r"[|,]", matcher):
             token = raw.strip()
-            if not token or token in KNOWN_TOOLS or token.startswith("mcp__"):
+            if not token or token in KNOWN_TOOLS:
+                continue
+            if token.startswith("mcp__"):
+                # A full exact MCP tool name is `mcp__server__tool`; a server-only `mcp__server`
+                # is an exact string that matches NO tool — to match a whole server you need the
+                # regex `mcp__server__.*` (regex-form, handled above), not a bare exact prefix.
+                if not re.fullmatch(r"mcp__.+__.+", token):
+                    problems.append(
+                        f"{where}: matcher token {token!r} is a server-only MCP prefix and matches "
+                        f"no tool — use an exact 'mcp__server__tool', or the regex 'mcp__server__.*' "
+                        f"to match a whole server")
                 continue
             near = difflib.get_close_matches(token, KNOWN_TOOLS, n=1, cutoff=0.7)
             if near:
